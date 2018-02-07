@@ -51,24 +51,21 @@ void main(void) {
 				printf("Write the name of the planet:\n"); 
 				scanf("%s", planetPtr->name); 
 				printf("X-axis position:\n"); 
-				scanf("%d", &planetPtr->sx);
+				scanf("%lf", &planetPtr->sx);
 				printf("y-axis position:\n");
-				scanf("%d", &planetPtr->sy);
-				printf("You wrote %d", planetPtr->sy); 
+				scanf("%lf", &planetPtr->sy); 
 				printf("X-axis velocity:\n");
-				scanf("%d", &planetPtr->vx);
+				scanf("%lf", &planetPtr->vx);
 				printf("y-axis velocity:\n");
-				scanf("%d", &planetPtr->vy);
+				scanf("%lf", &planetPtr->vy);
 				printf("Give your planet a mass:\n");
-				scanf("%d", &planetPtr->mass);
+				scanf("%lf", &planetPtr->mass);
 				printf("Give your planet a life:\n");
-				scanf("%d", &planetPtr->life);
+				scanf("%lf", &planetPtr->life);
 
-				printf("\n\nYou want to create %s with position (%d, %d) and velocity (%d, %d)." 
-					"It has a life of %d time units and a mass of size %d", 
-					planetPtr->name, planetPtr->sx, planetPtr->sy, planetPtr->vx, planetPtr->vy, planetPtr->life, planetPtr->mass);
-
-				/*This does not show info correctly*/ 
+				printf("\n\nYou want to create %s with position (%lf, %lf) and velocity (%lf, %lf)." 
+					"It has a life of %lf time units and a mass of size %lf", 
+					planetPtr->name, planetPtr->sx, planetPtr->sy, planetPtr->vx, planetPtr->vy, planetPtr->life, planetPtr->mass); 
 
 				printf("\n\nIf you want to send this information to the server, press 5.\n\n"); 
 		}
