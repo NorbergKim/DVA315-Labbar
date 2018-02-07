@@ -20,6 +20,9 @@ void main(void) {
 	HANDLE mailSlot;
 	DWORD bytesWritten;
 	int loops = 2000;
+	int choice = 0; 
+	planet_type planet; 
+	planet_type* planetPtr = &planet; 
 
 	mailSlot = mailslotConnect("mailbox"); 
 
@@ -28,18 +31,53 @@ void main(void) {
 		return;
 	}
 
+	/*Skapa mailslot som lyssnar efter om planeter dött?*/
+
 					/* NOTE: replace code below for sending planet data to the server. */
 	while(loops-- > 0) {
 						/* send a friendly greeting to the server */
 				    	/* NOTE: The messages sent to the server need not to be of equal size.       */
 					   /* Messages can be of different sizes as long as they don't exceed the       */
 					   /* maximum message size that the mailslot can handle (defined upon creation).*/
+
+		printf("Hello!\nWhat do you want to do?\n\n"); 
+		printf("Press 1 if you want to create a new planet.\n"); 
+
+		scanf_s("%d", &choice);
+
+		switch (choice)
+		{
+			case 1: 
+				printf("Write the name of the planet:\n"); 
+				scanf("%s", planetPtr->name); 
+				printf("X-axis position:\n"); 
+				scanf("%d", &planetPtr->sx);
+				printf("y-axis position:\n");
+				scanf("%d", &planetPtr->sy);
+				printf("You wrote %d", planetPtr->sy); 
+				printf("X-axis velocity:\n");
+				scanf("%d", &planetPtr->vx);
+				printf("y-axis velocity:\n");
+				scanf("%d", &planetPtr->vy);
+				printf("Give your planet a mass:\n");
+				scanf("%d", &planetPtr->mass);
+				printf("Give your planet a life:\n");
+				scanf("%d", &planetPtr->life);
+
+				printf("\n\nYou want to create %s with position (%d, %d) and velocity (%d, %d)." 
+					"It has a life of %d time units and a mass of size %d", 
+					planetPtr->name, planetPtr->sx, planetPtr->sy, planetPtr->vx, planetPtr->vy, planetPtr->life, planetPtr->mass);
+
+				/*This does not show info correctly*/ 
+
+				printf("\n\nIf you want to send this information to the server, press 5.\n\n"); 
+		}
     
-		bytesWritten = mailslotWrite (mailSlot, MESSAGE, strlen(MESSAGE));
+		/*bytesWritten = mailslotWrite (mailSlot, planetPtr, sizeof(planetPtr));
 		if (bytesWritten!=-1)
 			printf("data sent to server (bytes = %d)\n", bytesWritten);
 		else
-			printf("failed sending data to server\n");
+			printf("failed sending data to server\n");*/
 	}
 
 	mailslotClose (mailSlot);
