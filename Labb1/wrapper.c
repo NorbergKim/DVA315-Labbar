@@ -1,5 +1,3 @@
-
-
 #include <stdio.h>
 #include <windows.h>
 #include <string.h>
@@ -45,7 +43,6 @@ HANDLE mailslotCreate(char *name) {
 
 	return hSlot;
 }
-
 HANDLE mailslotConnect(char * slotname) {
 
 	HANDLE hFile;
@@ -78,7 +75,7 @@ int mailslotWrite(HANDLE mailSlot, void *msg, int msgSize) {
 
 	fResult = WriteFile(mailSlot,
 		msg,
-		(DWORD)(lstrlen(msg) + 1) * sizeof(TCHAR),
+		msgSize,
 		&cbWritten, NULL);
 
 	if (!fResult)
@@ -103,7 +100,7 @@ int	mailslotRead(HANDLE mailbox, void *msg, int msgSize) {
 		&bytesread,			// antal bytes lasta
 		NULL);					// skit
 
-	printf("Read Success: %s", msg);
+	printf("Read Success: %s", (char*)msg);
 
 
 	return bytesread;

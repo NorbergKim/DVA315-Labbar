@@ -3,11 +3,9 @@
 
 #include<windows.h>
 
+// Wrappers for windowhandling
 
 HANDLE Thread2;
-
-
-// Wrappers for windowhandling
 
 extern HWND windowCreate(HINSTANCE hpI, HINSTANCE hI, int ncs, char *title, WNDPROC callbackFunc, int bgcolor);
 
@@ -32,14 +30,20 @@ extern HANDLE OpenFileDialog(char* string, DWORD accessMode, DWORD howToCreate);
 
 typedef struct pt {
 	char		name[20];	// Name of planet
-	double		sx;			// X-axis position
-	double		sy;			// Y-axis position
-	double		vx;			// X-axis velocity
-	double		vy;			// Y-axis velocity
+	double		posx;		// X-axis position
+	double		posy;		// Y-axis position
+	double		velx;		// X-axis velocity
+	double		vely;		// Y-axis velocity
 	double		mass;		// Planet mass
 	struct pt*	next;		// Pointer to next planet in linked list
+	struct pt*	prev;		// Pointer to previues planet in linked list
 	int			life;		// Planet life
 	char		pid[30];	// String containing ID of creating process
-} planet_type;
+} Planet;
+
+typedef struct List {
+	DWORD planetcount;
+	struct pt* head;
+} Planetlist;
 
 #endif /* WRAPPER_H */
