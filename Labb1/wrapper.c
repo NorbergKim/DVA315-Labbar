@@ -78,7 +78,7 @@ int mailslotWrite(HANDLE mailSlot, void *msg, int msgSize) {
 
 	fResult = WriteFile(mailSlot,
 		msg,
-		(DWORD)(lstrlen(msg) + 1) * sizeof(TCHAR),
+		msgSize,
 		&cbWritten, NULL);
 
 	if (!fResult)

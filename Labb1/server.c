@@ -30,6 +30,7 @@
 							/* (the server uses a mailslot for incoming client requests) */
 
 
+LPTSTR name = TEXT("\\\\.\\mailslot\\superslotname");
 
 /*********************  Prototypes  ***************************/
 /* NOTE: Windows has defined its own set of types. When the   */
@@ -120,7 +121,7 @@ DWORD WINAPI mailThread(LPVOID arg) {
 							/* NOTE: The name of a mailslot must start with "\\\\.\\mailslot\\"  */
 
 	
-	mailbox = mailslotCreate ("mailbox");
+	mailbox = mailslotCreate (name);
 
 
 	for(;;) {				
