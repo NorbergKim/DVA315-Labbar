@@ -147,7 +147,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 
 	GetWindowRect(hWnd, &rect);
 	listofplanets = createPlanetlist();
-	//initTestPlanetsAndFillplanetlist(); /// endast för testning
+	/// initTestPlanetsAndFillplanetlist(); /// endast för testning
 
 
 	/* create a thread that can handle incoming client requests */
@@ -187,9 +187,6 @@ DWORD WINAPI mailThread(LPVOID arg) {
 	HANDLE hMailbox;
 
 	planet = createNewPlanet();
-
-
-
 
 
 	/* create a mailslot that clients can use to pass requests through   */
@@ -249,12 +246,6 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) 
 	HANDLE context;
 	static DWORD color = 0;
 
-
-	/*
-	Fånga fönsterstorlek.
-	arg: handle till wind, RECT type
-	RECT är en struct som innehåller koordinater till hörnen
-	*/
 
 
 	switch (msg) {
@@ -455,6 +446,8 @@ void paintPlanets()
 		SetPixel(hDC, planetToPaint->posx, planetToPaint->posy, (COLORREF)color);
 		planetToPaint = planetToPaint->next;
 	}
+
+	free(planetToPaint);
 }
 
 Planetlist* createPlanetlist(void)
@@ -571,8 +564,6 @@ void removePlanet(char* planetname)
 		planetToRemove = NULL;
 		listofplanets->planetcount--;
 	}
-
-	/// TODO: lägg till så att client får uppdatering om att planet är borttagen. 
 }
 
 

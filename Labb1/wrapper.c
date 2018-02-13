@@ -95,9 +95,9 @@ int	mailslotRead(HANDLE mailbox, void *msg, int msgSize) {
 	BOOL success = TRUE;
 
 	success = ReadFile(mailbox,
-		msg,					// plats att lagra sträng
-		msgSize,				// antal teckan att lasa 
-		&bytesread,			// antal bytes lasta
+		msg,					// plats att lagra data
+		msgSize,				// storlek på data
+		&bytesread,				// antal bytes lasta
 		NULL);					// skit
 
 	printf("Read Success: %s", (char*)msg);
