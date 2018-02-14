@@ -29,14 +29,25 @@ void main(void) {
 	/// hardcoded data to be removed
 	planet = createNewPlanet();
 
-	planet->life = 20000;
-	planet->mass = pow(10, 8);
-	planet->posx = 600;
-	planet->posy = 300;
-	planet->velx = 0.08;
-	planet->vely = 0.02;
-	strcpy(planet->name, "planet0\0");
-	strcpy(planet->pid, "p0\0");
+
+	
+
+	printf("\Name:  ");
+	scanf("%s", &planet->name);
+	printf("\nLife:  ");
+	scanf("%d", &planet->life);
+	printf("Mass:  ");
+	scanf("%d", &planet->mass);
+	printf("posx:  ");
+	scanf("%d", &planet->posx);
+	printf("posy:  ");
+	scanf("%d", &planet->posy);
+	printf("velx:  ");
+	scanf("%d", &planet->velx);
+	printf("vely:  ");
+	scanf("%d", &planet->vely);
+	strcpy(planet->pid, "p5");
+
 
 
 	
