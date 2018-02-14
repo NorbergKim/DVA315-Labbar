@@ -22,59 +22,85 @@ void main(void) {
 
 	HANDLE mailSlot;
 	DWORD bytesWritten;
-	int loops = 10;
+	int loops = 2000;
+	char choice = NULL;
+	int menu = 1;
 	Planet* planet;
+	char ch = NULL;
 
-
-	/// hardcoded data to be removed
 	planet = createNewPlanet();
 
-	planet->life = 20000;
-	planet->mass = pow(10, 8);
-	planet->posx = 600;
-	planet->posy = 300;
-	planet->velx = 0.08;
-	planet->vely = 0.02;
-	strcpy(planet->name, "planet0\0");
-	strcpy(planet->pid, "p0\0");
-
-
-	
 	mailSlot = mailslotConnect(Slotname);
+
 	if (mailSlot == INVALID_HANDLE_VALUE) {
 		printf("Failed to get a handle to the mailslot!!\nHave you started the server?\n");
 		return;
 	}
 
-
+	/*Loop not working yet, only works first round*/
 
 	/* NOTE: replace code below for sending planet data to the server. */
-		
-	
-	bytesWritten = mailslotWrite(mailSlot, planet, sizeof(Planet));
-	if (bytesWritten != -1)
-		printf("data sent to server (bytes = %d)\n", bytesWritten);
-	else
-		printf("failed sending data to server\n");
+	while (loops-- > 0) {
+		/* send a friendly greeting to the server */
+		/* NOTE: The messages sent to the server need not to be of equal size.       */
+		/* Messages can be of different sizes as long as they don't exceed the       */
+		/* maximum message size that the mailslot can handle (defined upon creation).*/;
 
-	//while (loops-- > 0) {
-	//	/* send a friendly greeting to the server */
-	//	/* NOTE: The messages sent to the server need not to be of equal size.       */
-	//	/* Messages can be of different sizes as long as they don't exceed the       */
-	//	/* maximum message size that the mailslot can handle (defined upon creation).*/
+		while (menu == 1)
+		{
+			//Resets choice-variable
+			choice = 0;
 
+			printf("Hello!\nPress Enter to create a new planet.\n");
+			getchar();
 
+			printf("Write the name of the planet:\n");
+			scanf("%s", planet->name);
+			printf("X-axis position:\n");
+			scanf("%lf", &planet->posx);
+			printf("y-axis position:\n");
+			scanf("%lf", &planet->posy);
+			printf("X-axis velocity:\n");
+			scanf("%lf", &planet->velx);
+			printf("y-axis velocity:\n");
+			scanf("%lf", &planet->vely);
+			printf("Give your planet a mass:\n");
+			scanf("%lf", &planet->mass);
+			printf("Give your planet a life:\n");
+			scanf("%d", &planet->life);
 
+			printf("\n\nYou want to create %s with position (%lf, %lf) and velocity (%lf, %lf)."
+				" It has a life of %d time units and a mass of size %lf",
+				planet->name, planet->posx, planet->posy, planet->velx, planet->vely, planet->life, planet->mass);
 
-	//}
+			strcpy(planet->pid, "p0\0");
 
-	system("pause");
+			printf("\n\nIf you want to send this information to the server, press 1. If not, press any button. Then press enter.\n\n");
+			scanf_s("%d", &choice);
+
+			if (choice == 1)
+				menu = 0;
+
+			//Clean input buffer
+			while ((ch = getchar()) != '\n' && ch != EOF);
+		}
+
+		printf("Menu has exit.");
+
+		bytesWritten = mailslotWrite(mailSlot, planet, sizeof(Planet));
+		if (bytesWritten != -1)
+			printf("data sent to server (bytes = %d)\n", bytesWritten);
+		else
+			printf("failed sending data to server\n");
+
+		menu = 1;
+	}
 
 	mailslotClose(mailSlot);
 
 	/* (sleep for a while, enables you to catch a glimpse of what the */
 	/*  client prints on the console)                                 */
-	system("pause");
+	Sleep(2000);
 	return;
 }
 
