@@ -28,6 +28,7 @@ void main(void) {
 
 	/// hardcoded data to be removed
 	planet = createNewPlanet();
+
 	planet->life = 20000;
 	planet->mass = pow(10, 8);
 	planet->posx = 600;
