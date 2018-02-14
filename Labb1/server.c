@@ -182,7 +182,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 DWORD WINAPI mailThread(LPVOID arg) {
 
 	Planet* planet;
-	DWORD bytesRead;
+	DWORD bytesRead = 0;
 	static int posY = 0;
 	HANDLE hMailbox;
 
@@ -197,6 +197,12 @@ DWORD WINAPI mailThread(LPVOID arg) {
 	hMailbox = mailslotCreate(Slotname);
 
 	bytesRead = mailslotRead(hMailbox, planet, sizeof(Planet));
+	if (bytesRead) {
+		TextOut(hDC, 20, 60, "Read success\0", sizeof(strlen("Read success\0")));
+	}
+
+	addPlanet(planet);
+
 
 	//for (;;) {
 	//	/* (ordinary file manipulating functions are used to read from mailslots) */
@@ -299,7 +305,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) 
 			/* NOTE: The code for this message can be removed. It's just */
 			/*       for showing something in the window.                */
 			context = BeginPaint(hWnd, &ps); /* (you can safely remove the following line of code) */
-			TextOut(context, 10, 10, "Hello, World!", 13); /* 13 is the string length */
+			//TextOut(context, 10, 10, "Hello, World!", 13); /* 13 is the string length */
 
 			EndPaint(hWnd, &ps);
 			break;

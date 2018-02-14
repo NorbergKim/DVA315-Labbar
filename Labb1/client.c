@@ -25,14 +25,8 @@ void main(void) {
 	int loops = 10;
 	Planet* planet;
 
-	mailSlot = mailslotConnect(Slotname);
 
-	if (mailSlot == INVALID_HANDLE_VALUE) {
-		printf("Failed to get a handle to the mailslot!!\nHave you started the server?\n");
-		return;
-	}
-
-
+	/// hardcoded data to be removed
 	planet = createNewPlanet();
 	planet->life = 20000;
 	planet->mass = pow(10, 8);
@@ -40,16 +34,27 @@ void main(void) {
 	planet->posy = 300;
 	planet->velx = 0.08;
 	planet->vely = 0.02;
-	strcpy(planet->name, "planet0");
-	strcpy(planet->pid, "p0");
+	strcpy(planet->name, "planet0\0");
+	strcpy(planet->pid, "p0\0");
+
+
+	
+	mailSlot = mailslotConnect(Slotname);
+	if (mailSlot == INVALID_HANDLE_VALUE) {
+		printf("Failed to get a handle to the mailslot!!\nHave you started the server?\n");
+		return;
+	}
+
+
 
 	/* NOTE: replace code below for sending planet data to the server. */
-
-		bytesWritten = mailslotWrite(mailSlot, planet, sizeof(Planet));
-		if (bytesWritten != -1)
-			printf("data sent to server (bytes = %d)\n", bytesWritten);
-		else
-			printf("failed sending data to server\n");
+		
+	
+	bytesWritten = mailslotWrite(mailSlot, planet, sizeof(Planet));
+	if (bytesWritten != -1)
+		printf("data sent to server (bytes = %d)\n", bytesWritten);
+	else
+		printf("failed sending data to server\n");
 
 	//while (loops-- > 0) {
 	//	/* send a friendly greeting to the server */
