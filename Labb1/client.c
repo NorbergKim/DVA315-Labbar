@@ -38,27 +38,29 @@ void main(void) {
 	planet->mass = pow(10, 8);
 	planet->posx = 600;
 	planet->posy = 300;
-	planet->velx = 0.0;
-	planet->vely = 0.0;
+	planet->velx = 0.08;
+	planet->vely = 0.02;
 	strcpy(planet->name, "planet0");
 	strcpy(planet->pid, "p0");
 
 	/* NOTE: replace code below for sending planet data to the server. */
-	while (loops-- > 0) {
-		/* send a friendly greeting to the server */
-		/* NOTE: The messages sent to the server need not to be of equal size.       */
-		/* Messages can be of different sizes as long as they don't exceed the       */
-		/* maximum message size that the mailslot can handle (defined upon creation).*/
-
-
-
 
 		bytesWritten = mailslotWrite(mailSlot, planet, sizeof(Planet));
 		if (bytesWritten != -1)
 			printf("data sent to server (bytes = %d)\n", bytesWritten);
 		else
 			printf("failed sending data to server\n");
-	}
+
+	//while (loops-- > 0) {
+	//	/* send a friendly greeting to the server */
+	//	/* NOTE: The messages sent to the server need not to be of equal size.       */
+	//	/* Messages can be of different sizes as long as they don't exceed the       */
+	//	/* maximum message size that the mailslot can handle (defined upon creation).*/
+
+
+
+
+	//}
 
 	system("pause");
 

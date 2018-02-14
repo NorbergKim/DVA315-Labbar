@@ -62,25 +62,25 @@ HDC hDC;		/* Handle to Device Context, gets set 1st time in MainWndProc	*/
 				/* NOTE: In windows WinMain is the start function, not main */
 
 
-				/*************************************/
-				/*
-				Globala variabler som behövs
-				*/
-DOUBLE G = 6.67259e-11;				// graitavionskonstant
+/*************************************/
+/*
+	Globala variabler som behövs
+*/
+DOUBLE		G = 6.67259e-11;				// graitavionskonstant
 Planetlist* listofplanets;
-RECT rect;							// struct som innehåller koordinater till hörn
-LPTSTR Slotname = TEXT("\\\\.\\mailslot\\superslot");
+RECT		rect;							// struct som innehåller koordinater till hörn
+LPTSTR		Slotname = TEXT("\\\\.\\mailslot\\superslot");
 
 /************************************/
 
 
 /********************************************************************************/
 /*
-Funktioner som:
-- beräknar nya positioner och hastigheter,
-- om en planet är vid liv
-- för att måla planeterna i fönstret
-- div. stödfunktioner till ovan.
+	Funktioner som:
+	- beräknar nya positioner och hastigheter,
+	- om en planet är vid liv
+	- för att måla planeterna i fönstret
+	- div. stödfunktioner till ovan.
 */
 
 
@@ -97,8 +97,8 @@ void	checkIfDeadAndRemove(Planet* planet);
 
 /***************************************************************************************************/
 /*
-Har under ligger definitioner for funktioner
-som hanterar den lankade listan av planeter.
+	Har under ligger definitioner for funktioner
+	som hanterar den lankade listan av planeter.
 */
 
 Planetlist*	createPlanetlist();
@@ -123,9 +123,9 @@ void initTestPlanetsAndFillplanetlist();
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLine, int nCmdShow) {
 
-	HWND hWnd;		// handle window
-	DWORD threadID;
-	MSG msg;
+	HWND	hWnd;		// handle window
+	DWORD	threadID;
+	MSG		msg;
 
 
 	/* Create the window, 3 last parameters important */
@@ -196,29 +196,30 @@ DWORD WINAPI mailThread(LPVOID arg) {
 
 	hMailbox = mailslotCreate(Slotname);
 
+	bytesRead = mailslotRead(hMailbox, planet, sizeof(Planet));
 
-	for (;;) {
-		/* (ordinary file manipulating functions are used to read from mailslots) */
-		/* in this example the server receives strings from the client side and   */
-		/* displays them in the presentation window                               */
-		/* NOTE: binary data can also be sent and received, e.g. planet structures*/
+	//for (;;) {
+	//	/* (ordinary file manipulating functions are used to read from mailslots) */
+	//	/* in this example the server receives strings from the client side and   */
+	//	/* displays them in the presentation window                               */
+	//	/* NOTE: binary data can also be sent and received, e.g. planet structures*/
 
 
-		bytesRead = mailslotRead(hMailbox, planet, sizeof(Planet));
+	//
 
-		if (bytesRead != 0) {
-			/* NOTE: It is appropriate to replace this code with something */
-			/*       that match your needs here.                           */
-			addPlanet(planet->name);
-			/* (hDC is used reference the previously created window) */
+	//	if (bytesRead != 0) {
+	//		/* NOTE: It is appropriate to replace this code with something */
+	//		/*       that match your needs here.                           */
+	//		addPlanet(planet->name);
+	//		/* (hDC is used reference the previously created window) */
 
-			//			TextOut(hDC, 10, 50+posY%200, planet->name, bytesRead);
-		}
-		else {
-			/* failed reading from mailslot                              */
-			/* (in this example we ignore this, and happily continue...) */
-		}
-	}
+	//		//			TextOut(hDC, 10, 50+posY%200, planet->name, bytesRead);
+	//	}
+	//	else {
+	//		/* failed reading from mailslot                              */
+	//		/* (in this example we ignore this, and happily continue...) */
+	//	}
+	//}
 
 	return 0;
 }
@@ -249,73 +250,85 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) 
 
 
 	switch (msg) {
-		/**************************************************************/
-		/*    WM_CREATE:        (received on window creation)
-		/**************************************************************/
-	case WM_CREATE:
-		hDC = GetDC(hWnd);
-		break;
-		/**************************************************************/
-		/*    WM_TIMER:         (received when our timer expires)
-		/**************************************************************/
-	case WM_TIMER:
 
-		/* NOTE: replace code below for periodic update of the window */
-		/*       e.g. draw a planet system)                           */
-		/* NOTE: this is referred to as the 'graphics' thread in the lab spec. */
+			/**************************************************************/
+			/*    WM_CREATE:        (received on window creation)
+			/**************************************************************/
 
-		/* here we draw a simple sinus curve in the window    */
-		/* just to show how pixels are drawn                  */
-
-		planetPosCalc();
-		paintPlanets();
-
-		windowRefreshTimer(hWnd, UPDATE_FREQ);
-		break;
+		case WM_CREATE:
+			hDC = GetDC(hWnd);
+			break;
 
 
+			/**************************************************************/
+			/*    WM_TIMER:         (received when our timer expires)
+			/**************************************************************/
+
+		case WM_TIMER:
+
+			/* NOTE: replace code below for periodic update of the window */
+			/*       e.g. draw a planet system)                           */
+			/* NOTE: this is referred to as the 'graphics' thread in the lab spec. */
+
+			/* here we draw a simple sinus curve in the window    */
+			/* just to show how pixels are drawn                  */
 
 
-		//posX += 4;
-		//posY = (int) (10 * sin(posX / (double) 30) + 20);
-		//SetPixel(hDC, posX % 700, posY, (COLORREF) color);
-		//color += 12;
-		//windowRefreshTimer (hWnd, UPDATE_FREQ);
-		//break; 
+			//posX += 4;
+			//posY = (int) (10 * sin(posX / (double) 30) + 20);
+			//SetPixel(hDC, posX % 700, posY, (COLORREF) color);
+			//color += 12;
+			//windowRefreshTimer (hWnd, UPDATE_FREQ);
+			//break; 
 
-		/****************************************************************\
-		*     WM_PAINT: (received when the window needs to be repainted, *
-		*               e.g. when maximizing the window)                 *
-		\****************************************************************/
+			planetPosCalc();
+			paintPlanets();
 
-	case WM_PAINT:
-		/* NOTE: The code for this message can be removed. It's just */
-		/*       for showing something in the window.                */
-		context = BeginPaint(hWnd, &ps); /* (you can safely remove the following line of code) */
-		TextOut(context, 10, 10, "Hello, World!", 13); /* 13 is the string length */
+			windowRefreshTimer(hWnd, UPDATE_FREQ);
+			break;
 
-		EndPaint(hWnd, &ps);
-		break;
-		/**************************************************************\
-		*     WM_DESTROY: PostQuitMessage() is called                  *
-		*     (received when the user presses the "quit" button in the *
-		*      window)                                                 *
-		\**************************************************************/
-	case WM_DESTROY:
-		PostQuitMessage(0);
-		/* NOTE: Windows will automatically release most resources this */
-		/*       process is using, e.g. memory and mailslots.           */
-		/*       (So even though we don't free the memory which has been*/
-		/*       allocated by us, there will not be memory leaks.)      */
 
-		ReleaseDC(hWnd, hDC); /* Some housekeeping */
-		break;
 
-		/**************************************************************\
-		*     Let the default window proc handle all other messages    *
-		\**************************************************************/
-	default:
-		return(DefWindowProc(hWnd, msg, wParam, lParam));
+			/****************************************************************\
+			*     WM_PAINT: (received when the window needs to be repainted, *
+			*               e.g. when maximizing the window)                 *
+			\****************************************************************/
+
+		case WM_PAINT:
+
+			/* NOTE: The code for this message can be removed. It's just */
+			/*       for showing something in the window.                */
+			context = BeginPaint(hWnd, &ps); /* (you can safely remove the following line of code) */
+			TextOut(context, 10, 10, "Hello, World!", 13); /* 13 is the string length */
+
+			EndPaint(hWnd, &ps);
+			break;
+
+
+			/**************************************************************\
+			*     WM_DESTROY: PostQuitMessage() is called                  *
+			*     (received when the user presses the "quit" button in the *
+			*      window)                                                 *
+			\**************************************************************/
+
+		case WM_DESTROY:
+
+			PostQuitMessage(0);
+			/* NOTE: Windows will automatically release most resources this */
+			/*       process is using, e.g. memory and mailslots.           */
+			/*       (So even though we don't free the memory which has been*/
+			/*       allocated by us, there will not be memory leaks.)      */
+
+			ReleaseDC(hWnd, hDC); /* Some housekeeping */
+			break;
+
+
+			/**************************************************************\
+			*     Let the default window proc handle all other messages    *
+			\**************************************************************/
+
+		default:
+			return(DefWindowProc(hWnd, msg, wParam, lParam));
 	}
 	return 0;
 }
@@ -365,6 +378,7 @@ void planetPosCalc()
 
 
 		shadow = focus;
+
 		//reseta denna
 		targets = listofplanets->head;
 	}
@@ -609,64 +623,3 @@ void initTestPlanetsAndFillplanetlist()
 	addPlanet(p1);
 	addPlanet(p2);
 }
-
-//void planetposcalc(Planet* planet1, Planet* planet2) {
-//
-//	float r = 0.0;
-//	float a = 0.0;
-//	float p1ax = 0.0;
-//	float p1ay = 0.0;
-//
-//
-//	/* steg 1 alltid nollställa dessa då nya hastigheter ska beräknas för varje frame */
-//	planet1->atotx = 0.0;
-//	planet2->atoty = 0.0;
-//
-//	static float dt = 10;
-//
-//	// r = sqrt( pow((x2-x1), 2) + pow((y2-y1), 2) )
-//
-//
-//	/*	steg 2 ur algoritmen 
-//		denna del bör ligga i en egen funktion som returnerar
-//		det sammanlagda påverkan av alla planeters påverkan mot 
-//		den planet som är i fokus. Detta returnerade värde anbänds
-//		sedan i steg 2c. 
-//	*/
-//
-//	/* 2a */
-//	r = sqrt( pow((planet2->currentposx - planet1->currentposx), 2) 
-//			+ pow((planet2->currentposy - planet1->currentposy), 2) ); // avstånd mellan fokus och mål
-//	a = G * planet2->mass / pow(r, 2);									// beräknad acceleration mellan planet och mål.
-
-/* 2b */
-//p1ax = a * (planet2->currentposx - planet1->currentposx) / r;	// uppdelning av acceleration i x- och y-led.
-//p1ay = a * (planet2->currentposy - planet1->currentposy) / r;	// detta görs för planet i fokus mot alla andra planeter
-//																// i planetlistan.
-
-/*
-//		varje planets påverkan, enligt uträkningar ovan,
-//		på planet1 ska adderas till atotx
-//		och atoty.
-//	*/
-//	/* 2c */
-//	planet1->atotx += p1ax;
-//	planet1->atoty += p1ay;	
-//
-//	/* steg 3 */
-//	planet1->newvelx = planet1->currentvelx + planet1->atotx * dt;
-//	planet1->newvely = planet1->currentvely + planet1->atoty * dt;
-//
-//	planet1->newposx = planet1->currentposx + planet1->newvelx * dt;
-//	planet1->newposy = planet1->currentposy + planet1->newvely * dt;
-//
-//	/* uppdatera positioner och hastigheter(står ej i algoritm fuktionen */
-//	planet1->currentposx = planet1->newposx; 
-//	planet1->currentposy = planet1->newposy;
-//
-//	planet1->currentvelx = planet1->newvelx;
-//	planet1->currentvely = planet1->newvely;
-//
-//	/* steg 4*/
-//	Sleep(10);
-//}
