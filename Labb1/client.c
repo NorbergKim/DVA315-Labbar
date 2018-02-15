@@ -94,14 +94,15 @@ Planet* createNewPlanet()
 	Planet* newPlanet = NULL;
 	newPlanet = (Planet*)malloc(sizeof(Planet));
 	if (newPlanet) {
-		newPlanet->life = 5000;
-		newPlanet->mass = 0.0;
-		newPlanet->posx = 0.0;
-		newPlanet->posy = 0.0;
-		newPlanet->velx = 0.0;
-		newPlanet->vely = 0.0;
-		newPlanet->prev = NULL;
-		newPlanet->next = NULL;
+		newPlanet->life		= 5000;
+		newPlanet->mass		= 0.0;
+		newPlanet->posx		= 0.0;
+		newPlanet->posy		= 0.0;
+		newPlanet->velx		= 0.0;
+		newPlanet->vely		= 0.0;
+		newPlanet->prev		= NULL;
+		newPlanet->next		= NULL;
+		newPlanet->isAlive	= TRUE;
 	}
 
 	else {

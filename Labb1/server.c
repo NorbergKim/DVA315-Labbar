@@ -188,52 +188,6 @@ DWORD WINAPI mailThread(LPVOID arg) {
 
 
 
-	Planet* p0;
-	Planet* p1;
-	Planet*	p2;
-	planet = createNewPlanet();
-
-	strcpy(planet->name, "planet");
-	planet->mass = 30000;
-	planet->posx = 300;
-	planet->posy = 400;
-	planet->velx = 0.08;
-	planet->vely = 0.00;
-	planet->life = 20;
-
-	
-	p0 = createNewPlanet();
-	p0->life = 20000;
-	p0->mass = pow(10, 10);
-	p0->posx = 600;
-	p0->posy = 300;
-	p0->velx = 0.0;
-	p0->vely = 0.0;
-	strcpy(p0->name, "planet0");
-
-
-	p1 = createNewPlanet();
-	p1->life = 20000;
-	p1->mass = 10000;
-	p1->posx = 500;
-	p1->posy = 300;
-	p1->velx = 0.0;
-	p1->vely = 0.008;
-	strcpy(p1->name, "planet1");
-
-
-	p2 = createNewPlanet();
-	p2->life = 20000;
-	p2->mass = 15000;
-	p2->posx = 800;
-	p2->posy = 300;
-	p2->velx = -0.001;
-	p2->vely = -0.01;
-	strcpy(p2->name, "planet2");
-
-
-
-
 	/* create a mailslot that clients can use to pass requests through   */
 	/* (the clients use the name below to get contact with the mailslot) */
 	/* NOTE: The name of a mailslot must start with "\\\\.\\mailslot\\"  */
@@ -245,10 +199,7 @@ DWORD WINAPI mailThread(LPVOID arg) {
 	//if (bytesRead) {
 	//	TextOut(hDC, 20, 500, "Mailslot read success\0", sizeof(strlen("Mailslot read success\0")));
 
-		planet->pid  = threadCreate(planetThread, planet);
-		p0->pid = threadCreate(planetThread, p0);
-		p1->pid = threadCreate(planetThread, p1);
-		p2->pid = threadCreate(planetThread, p2);
+
 	//}
 
 
@@ -479,8 +430,9 @@ void planetThread(Planet* planet)
 	{
 		planetPosCalc(planet);
 		Sleep(200);
-		if (planet->life <= 0)
+		if (!planet->isAlive)
 		{
+			free(planet);
 			return;
 		}
 	}
@@ -517,6 +469,7 @@ void checkIfDeadAndRemove(Planet* planet)
 	planet->life--;
 	if (planet->life == 0) {
 		removePlanet(planet->name);
+		planet->isAlive = FALSE;
 		Beep(440, 100);
 	}
 
@@ -524,6 +477,7 @@ void checkIfDeadAndRemove(Planet* planet)
 	else if
 		(planet->posx >= rect.right || planet->posy <= rect.top || planet->posx <= rect.left || planet->posy >= rect.bottom) {
 		removePlanet(planet->name);
+		planet->isAlive = FALSE;
 		Beep(880, 100);
 
 	}
@@ -563,7 +517,6 @@ Planetlist* createPlanetlist(void)
 
 	return listofplanets;
 }
-
 
 void addPlanet(Planet * planet)
 {
