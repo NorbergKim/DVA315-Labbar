@@ -29,16 +29,17 @@ extern HANDLE OpenFileDialog(char* string, DWORD accessMode, DWORD howToCreate);
 // will be done in lab 2 and 3
 
 typedef struct pt {
-	char		name[20];	// Name of planet
-	double		posx;		// X-axis position
-	double		posy;		// Y-axis position
-	double		velx;		// X-axis velocity
-	double		vely;		// Y-axis velocity
-	double		mass;		// Planet mass
-	struct pt*	next;		// Pointer to next planet in linked list
-	struct pt*	prev;		// Pointer to previues planet in linked list
-	int			life;		// Planet life
-	char		pid[30];	// String containing ID of creating process
+	char		name[20];		// Name of planet
+	double		posx;			// X-axis position
+	double		posy;			// Y-axis position
+	double		velx;			// X-axis velocity
+	double		vely;			// Y-axis velocity
+	double		mass;			// Planet mass
+	struct pt*	next;			// Pointer to next planet in linked list
+	struct pt*	prev;			// Pointer to previues planet in linked list
+	int			life;			// Planet life
+	int			pid;			// Int containing ID of creating process
+	char*		slotname[100];	// Planet mailslot name
 } Planet;
 
 typedef struct List {

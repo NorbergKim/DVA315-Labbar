@@ -18,6 +18,11 @@ Planet* createNewPlanet();
 LPTSTR Slotname = TEXT("\\\\.\\mailslot\\superslot");
 
 
+/// detta ar den tjanst server ger clienten. mata in data och ge tillbaka en unik pekare till skapad planet
+/// returnerade addressen av denna skickas sedan i mailsloten till servern.
+Planet*		createPlanet(char* name, double mass, double posx, double posy, int life);
+
+
 void main(void) {
 
 	HANDLE mailSlot;
@@ -25,10 +30,13 @@ void main(void) {
 	int loops = 10;
 	Planet* planet;
 
+	/// att implementera i loop:
+	/// har maste man reallokera och langre ner free(planet),for att det ska skickas in en nya adress for varje ny planet.
 
-	/// hardcoded data to be removed
 	planet = createNewPlanet();
 
+
+	/// hardcoded data to be removed
 	planet->life = 20000;
 	planet->mass = pow(10, 8);
 	planet->posx = 600;
@@ -39,7 +47,6 @@ void main(void) {
 	strcpy(planet->pid, "p0\0");
 
 
-	
 	mailSlot = mailslotConnect(Slotname);
 	if (mailSlot == INVALID_HANDLE_VALUE) {
 		printf("Failed to get a handle to the mailslot!!\nHave you started the server?\n");
@@ -53,7 +60,7 @@ void main(void) {
 	
 	bytesWritten = mailslotWrite(mailSlot, planet, sizeof(Planet));
 	if (bytesWritten != -1)
-		printf("data sent to server (bytes = %d)\n", bytesWritten);
+		printf("data sent to server, %d planet data.)\n", bytesWritten);
 	else
 		printf("failed sending data to server\n");
 
