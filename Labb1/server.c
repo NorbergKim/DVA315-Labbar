@@ -186,25 +186,73 @@ DWORD WINAPI mailThread(LPVOID arg) {
 	HANDLE hMailbox;
 	HANDLE hThreads[THREADCOUNT];
 
+
+
+	Planet* p0;
+	Planet* p1;
+	Planet*	p2;
 	planet = createNewPlanet();
+
+	strcpy(planet->name, "planet");
+	planet->mass = 30000;
+	planet->posx = 300;
+	planet->posy = 400;
+	planet->velx = 0.08;
+	planet->vely = 0.00;
+	planet->life = 20;
+
+	
+	p0 = createNewPlanet();
+	p0->life = 20000;
+	p0->mass = pow(10, 10);
+	p0->posx = 600;
+	p0->posy = 300;
+	p0->velx = 0.0;
+	p0->vely = 0.0;
+	strcpy(p0->name, "planet0");
+
+
+	p1 = createNewPlanet();
+	p1->life = 20000;
+	p1->mass = 10000;
+	p1->posx = 500;
+	p1->posy = 300;
+	p1->velx = 0.0;
+	p1->vely = 0.008;
+	strcpy(p1->name, "planet1");
+
+
+	p2 = createNewPlanet();
+	p2->life = 20000;
+	p2->mass = 15000;
+	p2->posx = 800;
+	p2->posy = 300;
+	p2->velx = -0.001;
+	p2->vely = -0.01;
+	strcpy(p2->name, "planet2");
+
+
 
 
 	/* create a mailslot that clients can use to pass requests through   */
 	/* (the clients use the name below to get contact with the mailslot) */
 	/* NOTE: The name of a mailslot must start with "\\\\.\\mailslot\\"  */
 
-	hMailbox = mailslotCreate(Slotname);
+	//hMailbox = mailslotCreate(Slotname);
 
-	bytesRead = mailslotRead(hMailbox, planet, sizeof(Planet));
+	//bytesRead = mailslotRead(hMailbox, planet, sizeof(Planet));
 
-	if (bytesRead) {
-		TextOut(hDC, 20, 500, "Mailslot read success\0", sizeof(strlen("Mailslot read success\0")));
+	//if (bytesRead) {
+	//	TextOut(hDC, 20, 500, "Mailslot read success\0", sizeof(strlen("Mailslot read success\0")));
 
-		//planet->pid  = threadCreate(planetThread, planet);
-	}
+		planet->pid  = threadCreate(planetThread, planet);
+		p0->pid = threadCreate(planetThread, p0);
+		p1->pid = threadCreate(planetThread, p1);
+		p2->pid = threadCreate(planetThread, p2);
+	//}
 
-	addPlanet(planet);
-	planetPosCalc(planet);
+
+
 
 
 	//for (;;) {
@@ -219,7 +267,6 @@ DWORD WINAPI mailThread(LPVOID arg) {
 	//	if (bytesRead != 0) {
 	//		/* NOTE: It is appropriate to replace this code with something */
 	//		/*       that match your needs here.                           */
-	//		addPlanet(planet->name);
 	//		/* (hDC is used reference the previously created window) */
 
 	//		//			TextOut(hDC, 10, 50+posY%200, planet->name, bytesRead);
@@ -348,25 +395,18 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) 
 /****************************/
 void planetPosCalc(Planet* planet)
 {
-	Planet* focus;
 	Planet* targets;
-	Planet* shadow;
-	double atotx = 0.0;
-	double atoty = 0.0;
-	double radius = 0.0;
+	double	atotx = 0.0;
+	double	atoty = 0.0;
+	double	radius = 0.0;
 
-	focus = listofplanets->head;
 	targets = listofplanets->head;
 
-	while (focus != NULL && strcmp(focus->name, planet->name)) { // finn den planet vi ska gora berakningar pa
-		focus = focus->next;
-	}
-
 	while (targets != NULL) {
-		if (strcmp(focus->name, targets->name)) {  // om ej samma berakna acceleration
-			radius = p2pRadius(focus, targets);
-			atotx += p2pxacc(focus, targets, radius);
-			atoty += p2pyacc(focus, targets, radius);
+		if (strcmp(planet->name, targets->name)) {  // om ej samma berakna acceleration
+			radius = p2pRadius(planet, targets);
+			atotx += p2pxacc(planet, targets, radius);
+			atoty += p2pyacc(planet, targets, radius);
 		}
 
 		targets = targets->next;
@@ -374,11 +414,11 @@ void planetPosCalc(Planet* planet)
 
 	// när den samlade accelerationspåverkan mellan focus och resten (targets)
 	// är uträknad så beräknas ny hastighet och position ut (i x- och y-led).
-	newPlanetPos(focus, atotx, atoty);
+	newPlanetPos(planet, atotx, atoty);
 
 
 	// kontrollera om livet kommer ner till noll eller om utanför fönster
-	checkIfDeadAndRemove(focus);
+	checkIfDeadAndRemove(planet);
 
 
 	//reseta denna
@@ -429,6 +469,22 @@ void newPlanetPos(Planet* planet, double atotx, double atoty)
 /***************************/
 /* planet och listfunktion */
 /***************************/
+
+
+void planetThread(Planet* planet)
+{
+	addPlanet(planet);
+
+	while (1)
+	{
+		planetPosCalc(planet);
+		Sleep(200);
+		if (planet->life <= 0)
+		{
+			return;
+		}
+	}
+}
 
 Planet* createNewPlanet()
 {
@@ -672,5 +728,3 @@ void removePlanet(char* planetname)
 //		targets = listofplanets->head;
 //	}
 //}
-
-
