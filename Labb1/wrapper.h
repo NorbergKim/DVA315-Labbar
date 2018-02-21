@@ -40,7 +40,7 @@ typedef struct pt {
 	int			life;			// Planet life
 	int			pid;			// Int containing ID of creating process
 	char*		slotname[100];	// Planet mailslot name
-	BOOL		isAlive			// Simple boolean
+	BOOL		isAlive;		// Simple boolean
 } Planet;
 
 typedef struct List {

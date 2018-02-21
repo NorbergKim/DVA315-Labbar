@@ -48,20 +48,6 @@ DWORD WINAPI mailThread(LPVOID);
 HDC hDC;		/* Handle to Device Context, gets set 1st time in MainWndProc	*/
 				/* we need it to access the window for printing and drawing		*/
 
-				/********************************************************************\
-				*  Function: int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)    *
-				*                                                                    *
-				*   Purpose: Initializes Application                                 *
-				*                                                                    *
-				*  Comments: Register window class, create and display the main      *
-				*            window, and enter message loop.                         *
-				*                                                                    *
-				*                                                                    *
-				\********************************************************************/
-
-				/* NOTE: This function is not too important to you, it only */
-				/*       initializes a bunch of things.                     */
-				/* NOTE: In windows WinMain is the start function, not main */
 
 
 /*************************************/
@@ -71,7 +57,9 @@ HDC hDC;		/* Handle to Device Context, gets set 1st time in MainWndProc	*/
 DOUBLE		G = 6.67259e-11;				// graitavionskonstant
 Planetlist* listofplanets;
 RECT		rect;							// struct som innehåller koordinater till hörn
-LPTSTR		Slotname = TEXT("\\\\.\\mailslot\\superslot");
+//LPTSTR		Slotname = TEXT("\\\\.\\mailslot\\superslot");
+char*		Slotname = "\\\\.\\mailslot\\superslot";
+HANDLE		hMutex;
 
 /************************************/
 
@@ -120,22 +108,41 @@ void		removePlanet(char* IDtoRemove);
 //void	calcAllPlanetPos();	/// denna måste göras om då varje planet tråd räknar endast ut ny pos/vel för sin egen planet
 //void	initTestPlanetsAndFillplanetlist();
 /*********************************************/
+				
 
+				/********************************************************************\
+				*  Function: int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)    *
+				*                                                                    *
+				*   Purpose: Initializes Application                                 *
+				*                                                                    *
+				*  Comments: Register window class, create and display the main      *
+				*            window, and enter message loop.                         *
+				*                                                                    *
+				*                                                                    *
+				\********************************************************************/
 
-
+				/* NOTE: This function is not too important to you, it only */
+				/*       initializes a bunch of things.                     */
+				/* NOTE: In windows WinMain is the start function, not main */
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLine, int nCmdShow) {
 
 	HWND	hWnd;		// handle window
 	DWORD	threadID;
 	MSG		msg;
 
+	hMutex = CreateMutex(
+		NULL,								// default security descriptor
+		FALSE,								// mutex not owned
+		TEXT("ServerMailslotMutex"));		// object name, detta krävs för interprocess kommunikation. opernMutex används hos client
+	GetWindowRect(hWnd, &rect);
+	listofplanets = createPlanetlist();
+	/// initTestPlanetsAndFillplanetlist(); /// endast för testning
 
 	/* Create the window, 3 last parameters important */
 	/* The tile of the window, the callback function */
 	/* and the backgrond color */
 
 	hWnd = windowCreate(hPrevInstance, hInstance, nCmdShow, "Himmel", MainWndProc, COLOR_WINDOW + 1);
-
 
 
 	/* start the timer for the periodic update of the window    */
@@ -145,11 +152,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 	/*       our callback function (MainWndProc).               */
 
 	windowRefreshTimer(hWnd, UPDATE_FREQ);
-
-
-	GetWindowRect(hWnd, &rect);
-	listofplanets = createPlanetlist();
-	/// initTestPlanetsAndFillplanetlist(); /// endast för testning
 
 
 	/* create a thread that can handle incoming client requests */
@@ -180,27 +182,37 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 /********************************************************************/
 DWORD WINAPI mailThread(LPVOID arg) {
 
-	Planet* planet;
-	DWORD bytesRead = 0;
-	static int posY = 0;
-	HANDLE hMailbox;
-	HANDLE hThreads[THREADCOUNT];
+	//Planet*		planet;
+	void*		message;	/// testar att ta emot data sa har.
+	DWORD		bytesRead = 0;
+	static int	posY = 0;
+	HANDLE		hMailbox;
+	HANDLE		hThreads[THREADCOUNT];
 
 
+	hMailbox = mailslotCreate(Slotname);
 
 	/* create a mailslot that clients can use to pass requests through   */
 	/* (the clients use the name below to get contact with the mailslot) */
 	/* NOTE: The name of a mailslot must start with "\\\\.\\mailslot\\"  */
 
-	//hMailbox = mailslotCreate(Slotname);
 
-	//bytesRead = mailslotRead(hMailbox, planet, sizeof(Planet));
+	while (1) {
 
-	//if (bytesRead) {
-	//	TextOut(hDC, 20, 500, "Mailslot read success\0", sizeof(strlen("Mailslot read success\0")));
+		//planet = createNewPlanet;
 
+		bytesRead = mailslotRead(hMailbox, message, sizeof(Planet));
 
-	//}
+		if (bytesRead == sizeof(Planet)) { // har läst planetdata
+			TextOut(hDC, 20, 500, "Mailslot read success\0", sizeof(strlen("Mailslot read success\0")));
+			threadCreate(planetThread, message);
+		}
+		else {
+			/// om något annat lästs in med annan storlek än planet, kan vi anta att detta är hälsningen från client
+			TextOut(hDC, 50, 1000, message, sizeof(message));
+		}
+	}
+
 
 
 
@@ -280,13 +292,6 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) 
 			/* here we draw a simple sinus curve in the window    */
 			/* just to show how pixels are drawn                  */
 
-
-			//posX += 4;
-			//posY = (int) (10 * sin(posX / (double) 30) + 20);
-			//SetPixel(hDC, posX % 700, posY, (COLORREF) color);
-			//color += 12;
-			//windowRefreshTimer (hWnd, UPDATE_FREQ);
-			//break; 
 
 			paintPlanets();
 
@@ -430,8 +435,7 @@ void planetThread(Planet* planet)
 	{
 		planetPosCalc(planet);
 		Sleep(200);
-		if (!planet->isAlive)
-		{
+		if (!planet->isAlive) {
 			free(planet);
 			return;
 		}
