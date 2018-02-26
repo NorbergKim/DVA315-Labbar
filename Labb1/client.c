@@ -15,29 +15,35 @@
 
 
 Planet*	createNewPlanet();
-LPTSTR	Slotname = TEXT("\\\\.\\mailslot\\superslot");
+LPTSTR		ServerSlotname = TEXT("\\\\.\\mailslot\\superslot");
+HANDLE		hCllientMailslot;
 
 
 /// detta ar den tjanst server ger clienten. mata in data och ge tillbaka en unik pekare till skapad planet
 /// returnerade addressen av denna skickas sedan i mailsloten till servern.
 Planet*	createNewPlanet();
-char*	clientMailslotName();
+char*		clientMailslot();
 
 
 void main(void) {
 
-	HANDLE	mailSlot;
-	DWORD	bytesWritten;
-	int		loops = 10;
-	Planet* planet;
-	char	ch;
+	HANDLE		mailSlot;
+	DWORD		bytesWritten;
+	int			loops = 10;
+	Planet*	planet;
+	char		ch;
+	char*		clientSlotname;
+	int			choice;
 
 	HANDLE	hMutex;
 
 	hMutex = OpenMutex(
-		MUTEX_ALL_ACCESS,            // request full access
-		FALSE,                       // handle not inheritable
-		TEXT("ServerMailslotMutex"));  // object name
+		MUTEX_ALL_ACCESS,				// request full access
+		FALSE,								// handle not inheritable
+		TEXT("ServerMailslotMutex"));	// object name
+
+	clientSlotname = clientMailslot();
+
 
 	/// att implementera i loop:
 	/// har maste man reallokera och langre ner free(planet),for att det ska skickas in en nya adress for varje ny planet,
@@ -49,57 +55,76 @@ void main(void) {
 		/// efteråt skickas det en automatiserad hälsning till sever.
 		/// sedan börjar clienten ta in planet data
 
-		printf("Hello!\nPress Enter to create a new planet.\n");
-		getchar();
-
-		printf("Write the name of the planet:\n");
-		scanf("%s", planet->name);
-		printf("X-axis position:\n");
-		scanf("%lf", &planet->posx);
-		printf("y-axis position:\n");
-		scanf("%lf", &planet->posy);
-		printf("X-axis velocity:\n");
-		scanf("%lf", &planet->velx);
-		printf("y-axis velocity:\n");
-		scanf("%lf", &planet->vely);
-		printf("Give your planet a mass:\n");
-		scanf("%lf", &planet->mass);
-		printf("Give your planet a life:\n");
-		scanf("%d", &planet->life);
-
-		printf("\n\nYou want to create %s with position (%lf, %lf) and velocity (%lf, %lf)."
-			" It has a life of %d time units and a mass of size %lf",
-			planet->name, planet->posx, planet->posy, planet->velx, planet->vely, planet->life, planet->mass);
-
-		strcpy(planet->pid, "p0\0");
-
-		printf("\n\nIf you want to send this information to the server, press 1. If not, press any button. Then press enter.\n\n");
-		scanf_s("%d", &choice);
-
-
-		//Clean input buffer
-		while ((ch = getchar()) != '\n' && ch != EOF);
-
-
 		planet = createNewPlanet();
 
+		while (choice == 1) {
 
-		mailSlot = mailslotConnect(Slotname);
-		if (mailSlot == INVALID_HANDLE_VALUE) {
-			printf("Failed to get a handle to the mailslot!!\nHave you started the server?\n");
-			return;
+			planet->slotname = NULL;
+
+			printf("Hello!\nPress Enter to create a new planet.\n");
+			getchar();
+
+			/// har lagger man att mutex ska huggas. D.v.s. client tar endast mutex om det ska skrivas in data.
+
+			printf("Write the name of the planet:\n");
+			scanf("%s", planet->name);
+			printf("X-axis position:\n");
+			scanf("%lf", &planet->posx);
+			printf("y-axis position:\n");
+			scanf("%lf", &planet->posy);
+			printf("X-axis velocity:\n");
+			scanf("%lf", &planet->velx);
+			printf("y-axis velocity:\n");
+			scanf("%lf", &planet->vely);
+			printf("Give your planet a mass:\n");
+			scanf("%lf", &planet->mass);
+			printf("Give your planet a life:\n");
+			scanf("%d", &planet->life);
+
+			printf("\n\nYou want to create %s with position (%lf, %lf) and velocity (%lf, %lf)."
+				" It has a life of %d time units and a mass of size %lf",
+				planet->name, planet->posx, planet->posy, planet->velx, planet->vely, planet->life, planet->mass);
+
+			planet->pid = GetcurrentThreadId();
+
+			planet->slotname = (char*)malloc(sizeof(strlen(clientSlotname)));
+			strcpy(planet->slotname, clientSlotname);
+
+			printf("\n\nIf you want to send this information to the server, press 1. If not, press any button. Then press enter.\n\n");
+			scanf_s("%d", &choice);
+
+
+			//Clean input buffer
+			while ((ch = getchar()) != '\n' && ch != EOF);
+
+			switch (choice)
+			{
+
+			case 1:
+				mailSlot = mailslotConnect(ServerSlotname);
+				if (mailSlot == INVALID_HANDLE_VALUE) {
+					printf("Failed to get a handle to the mailslot!!\nHave you started the server?\n");
+					/// släpp mutex
+					return;
+				}
+
+				bytesWritten = mailslotWrite(mailSlot, planet, sizeof(Planet));
+				if (bytesWritten != -1)
+					printf("data sent to server, %d planet data.)\n", bytesWritten);
+				else
+					printf("failed sending data to server\n");
+
+				free(planet); break;
+
+			default: break;
+
+				
+			}
+
+			/// släpp mutex
 		}
-
-
-
-
-
-		bytesWritten = mailslotWrite(mailSlot, planet, sizeof(Planet));
-		if (bytesWritten != -1)
-			printf("data sent to server, %d planet data.)\n", bytesWritten);
-		else
-			printf("failed sending data to server\n");
 	}
+
 
 		/* NOTE: replace code below for sending planet data to the server. */
 	//while (loops-- > 0) {
@@ -148,12 +173,27 @@ Planet* createNewPlanet()
 	return newPlanet;
 }
 
-char* clientMailslotName()
+char* clientMailslot()
 {
-	int processID = GetCurrentThreadId();
-	char str[12];
+	int			processID = GetCurrentThreadId();
+	char*		str = (char*)malloc(sizeof(char) * 10);
+	char*		partslotname = "\\\\.\\mailslot\\";
+	char*		slotname = (char*)malloc(sizeof(char) * 13);
+
+
+	strcpy(slotname, partslotname);
+	printf("\n%s", slotname);
 
 	sprintf(str, "%d", processID);  // "gor om" int till string
+	printf("\n%s", str);
 
+	str = (char*)realloc(str, sizeof(strlen(str)));
+	printf("\n%s", str);
 
+	strcat(slotname, str);
+	printf("\n%s\t%d", slotname, strlen(slotname));
+
+	hCllientMailslot = mailslotCreate(slotname);
+
+	return slotname;
 }

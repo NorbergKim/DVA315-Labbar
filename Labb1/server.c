@@ -13,7 +13,7 @@
 * NOTE: this program uses some graphic primitives provided by Win32, *
 * therefore there are probably a lot of things that are unfamiliar   *
 * to you. There are comments in this file that indicates where it is *
-* appropriate to place your code.                                    *
+* appropriate to place your code.									    *
 * *******************************************************************/
 
 #include <windows.h>
@@ -40,8 +40,8 @@
 /*       to indicate that. (Ignore them for now.)             */
 /**************************************************************/
 
-LRESULT WINAPI MainWndProc(HWND, UINT, WPARAM, LPARAM);
-DWORD WINAPI mailThread(LPVOID);
+LRESULT WINAPI	MainWndProc(HWND, UINT, WPARAM, LPARAM);
+DWORD WINAPI		mailThread(LPVOID);
 
 
 
@@ -54,13 +54,12 @@ HDC hDC;		/* Handle to Device Context, gets set 1st time in MainWndProc	*/
 /*
 	Globala variabler som behövs
 */
-DOUBLE		G = 6.67259e-11;				// graitavionskonstant
-Planetlist* listofplanets;
-RECT		rect;							// struct som innehåller koordinater till hörn
+DOUBLE			G = 6.67259e-11;				// graitavionskonstant
+Planetlist*	listofplanets;
+RECT			rect;							// struct som innehåller koordinater till hörn
 //LPTSTR		Slotname = TEXT("\\\\.\\mailslot\\superslot");
-char*		Slotname = "\\\\.\\mailslot\\superslot";
-HANDLE		hMutex;
-
+char*			Slotname = "\\\\.\\mailslot\\superslot";
+HANDLE			hMutex;
 /************************************/
 
 
@@ -72,7 +71,6 @@ HANDLE		hMutex;
 	- för att måla planeterna i fönstret
 	- div. stödfunktioner till ovan.
 */
-
 void	planetPosCalc(Planet* planet);
 double	p2pRadius(Planet* focus, Planet* target);
 double	p2pxacc(Planet* focus, Planet* target, double r);
@@ -80,7 +78,6 @@ double	p2pyacc(Planet* focus, Planet* target, double r);
 void	newPlanetPos(Planet* planet, double atotx, double atoty);
 void	paintPlanets();
 void	checkIfDeadAndRemove(Planet* planet);
-
 /*******************************************************************************/
 
 
@@ -90,11 +87,11 @@ void	checkIfDeadAndRemove(Planet* planet);
 	som hanterar den lankade listan av planeter.
 */
 
-void		planetThread(Planet* planet);
+void			planetThread(Planet* planet);
 Planetlist*	createPlanetlist();
 Planet*		createNewPlanet();
-void		addPlanet(Planet* data);	
-void		removePlanet(char* IDtoRemove);
+void			addPlanet(Planet* data);	
+void			removePlanet(char* IDtoRemove);
 
 /***************************************************************************************************/
 
@@ -126,8 +123,8 @@ void		removePlanet(char* IDtoRemove);
 				/* NOTE: In windows WinMain is the start function, not main */
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLine, int nCmdShow) {
 
-	HWND	hWnd;		// handle window
-	DWORD	threadID;
+	HWND		hWnd;		// handle window
+	DWORD		threadID;
 	MSG		msg;
 
 	hMutex = CreateMutex(
@@ -182,7 +179,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 /********************************************************************/
 DWORD WINAPI mailThread(LPVOID arg) {
 
-	//Planet*		planet;
+	//Planet*	planet;
 	void*		message;	/// testar att ta emot data sa har.
 	DWORD		bytesRead = 0;
 	static int	posY = 0;
@@ -201,20 +198,18 @@ DWORD WINAPI mailThread(LPVOID arg) {
 
 		//planet = createNewPlanet;
 
+		
 		bytesRead = mailslotRead(hMailbox, message, sizeof(Planet));
-
+		
 		if (bytesRead == sizeof(Planet)) { // har läst planetdata
 			TextOut(hDC, 20, 500, "Mailslot read success\0", sizeof(strlen("Mailslot read success\0")));
 			threadCreate(planetThread, message);
 		}
 		else {
-			/// om något annat lästs in med annan storlek än planet, kan vi anta att detta är hälsningen från client
+			// om något annat lästs in med annan storlek än planet, kan vi anta att detta är hälsningen från client
 			TextOut(hDC, 50, 1000, message, sizeof(message));
 		}
 	}
-
-
-
 
 
 
@@ -260,11 +255,11 @@ DWORD WINAPI mailThread(LPVOID arg) {
 
 LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
-	PAINTSTRUCT ps;
-	static int posX = 10;
-	int posY;
-	HANDLE context;
-	static DWORD color = 0;
+	PAINTSTRUCT		ps;
+	static int			posX = 10;
+	int					posY;
+	HANDLE				context;
+	static DWORD		color = 0;
 
 
 
@@ -376,8 +371,7 @@ void planetPosCalc(Planet* planet)
 	// kontrollera om livet kommer ner till noll eller om utanför fönster
 	checkIfDeadAndRemove(planet);
 
-
-	//reseta denna
+	// reseta denna
 	targets = listofplanets->head;
 	
 }
@@ -436,6 +430,7 @@ void planetThread(Planet* planet)
 		planetPosCalc(planet);
 		Sleep(200);
 		if (!planet->isAlive) {
+			//skicka meddelande till client nar planet dor
 			free(planet);
 			return;
 		}

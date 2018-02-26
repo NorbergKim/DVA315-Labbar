@@ -39,7 +39,7 @@ typedef struct pt {
 	struct pt*	prev;			// Pointer to previues planet in linked list
 	int			life;			// Planet life
 	int			pid;			// Int containing ID of creating process
-	char*		slotname[100];	// Planet mailslot name
+	char*		slotname;		// Planet mailslot name
 	BOOL		isAlive;		// Simple boolean
 } Planet;
 
