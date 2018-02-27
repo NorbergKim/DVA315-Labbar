@@ -59,13 +59,15 @@ void main(void) {
 					printf("Failed to get a handle to the mailslot!!\nHave you started the server?\n");
 					CloseHandle(hMutex);/// släpp mutex
 				}
-				bytesWritten = mailslotWrite(mailSlot, greetings, sizeof(strlen(greetings)));
-				run = 0;
+				else {
+					bytesWritten = mailslotWrite(mailSlot, greetings, sizeof(strlen(greetings)));
+					run = 0;
+				}
 			}
 		}
 		__finally {
 			if (!CloseHandle(hMutex)) {
-				printf("Error: %d", GetLastError());
+				printf("Error i __finally: %d", GetLastError());
 			}
 		}
 	}

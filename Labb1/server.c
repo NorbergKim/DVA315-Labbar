@@ -30,8 +30,6 @@
 
 /* (the server uses a mailslot for incoming client requests) */
 
-#define THREADCOUNT 100 /// hardcoded max threadcount
-
 
 
 /*********************  Prototypes  ***************************/
@@ -42,11 +40,8 @@
 
 LRESULT WINAPI	MainWndProc(HWND, UINT, WPARAM, LPARAM);
 DWORD WINAPI		mailThread(LPVOID);
-
-
-
-HDC hDC;		/* Handle to Device Context, gets set 1st time in MainWndProc	*/
-				/* we need it to access the window for printing and drawing		*/
+HDC				hDC;		/* Handle to Device Context, gets set 1st time in MainWndProc	*/
+								/* we need it to access the window for printing and drawing		*/
 
 
 
@@ -182,11 +177,11 @@ DWORD WINAPI mailThread(LPVOID arg) {
 	//Planet*	planet;
 	void*		message;	/// testar att ta emot data sa har.
 	DWORD		bytesRead = 0;
-	static int	posY = 0;
 	HANDLE		hMailbox;
 //	HANDLE		hThreads[THREADCOUNT];
 	HANDLE		hFile;
 	DWORD		waitResult;
+	char*		crap = "some fucking crap";;
 
 	message = (void*)malloc(sizeof(int) * 1024);
 	hMailbox = mailslotCreate(ServerMailslot);
@@ -199,15 +194,13 @@ DWORD WINAPI mailThread(LPVOID arg) {
 	while (1) {
 
 		//planet = createNewPlanet;
+		waitResult = WaitForSingleObject(hMutex, INFINITE);
 
-		waitResult = WaitForSingleObject(hMutex, 1000);
-
-		switch (waitResult)
-		{
+		switch (waitResult) {
 		case WAIT_OBJECT_0:
 			__try {
 				hFile = mailslotConnect(ServerMailslot);
-				bytesRead = mailslotRead(hMailbox, message, sizeof(Planet));
+				bytesRead = mailslotRead(hFile, message, sizeof(Planet));
 				message = (Planet*)realloc(message, sizeof(Planet));
 				if (bytesRead == sizeof(Planet)) { // har läst planetdata
 					TextOut(hDC, 20, 500, "Mailslot read success\0", sizeof(strlen("Mailslot read success\0")));
@@ -222,12 +215,12 @@ DWORD WINAPI mailThread(LPVOID arg) {
 				CloseHandle(hMutex);
 				/// lägga till felhantering 
 			}
+		case WAIT_ABANDONED: 
+			continue;
 		}
 
 		Sleep(100); // sov denna en stund sa att en client kan hugga tag i mutex
 	}
-
-
 
 
 	//for (;;) {
@@ -235,10 +228,6 @@ DWORD WINAPI mailThread(LPVOID arg) {
 	//	/* in this example the server receives strings from the client side and   */
 	//	/* displays them in the presentation window                               */
 	//	/* NOTE: binary data can also be sent and received, e.g. planet structures*/
-
-
-	//
-
 	//	if (bytesRead != 0) {
 	//		/* NOTE: It is appropriate to replace this code with something */
 	//		/*       that match your needs here.                           */
