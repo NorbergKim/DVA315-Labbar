@@ -52,14 +52,16 @@ HDC hDC;		/* Handle to Device Context, gets set 1st time in MainWndProc	*/
 
 /*************************************/
 /*
-	Globala variabler som behövs
+	Globala variabler som behövs och div stödfunktioner
 */
 DOUBLE			G = 6.67259e-11;				// graitavionskonstant
 Planetlist*	listofplanets;
 RECT			rect;							// struct som innehåller koordinater till hörn
 //LPTSTR		Slotname = TEXT("\\\\.\\mailslot\\superslot");
-char*			Slotname = "\\\\.\\mailslot\\superslot";
+char*			ServerMailslot = "\\\\.\\mailslot\\superslot";
 HANDLE			hMutex;
+
+void			MutexCreate(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bInitialOwner, LPCTSTR lpName, HWND hWD);
 /************************************/
 
 
@@ -123,14 +125,11 @@ void			removePlanet(char* IDtoRemove);
 				/* NOTE: In windows WinMain is the start function, not main */
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLine, int nCmdShow) {
 
-	HWND		hWnd;		// handle window
+	HWND		hWnd = NULL;		// handle window
 	DWORD		threadID;
 	MSG		msg;
 
-	hMutex = CreateMutex(
-		NULL,								// default security descriptor
-		FALSE,								// mutex not owned
-		TEXT("ServerMailslotMutex"));		// object name, detta krävs för interprocess kommunikation. opernMutex används hos client
+
 	GetWindowRect(hWnd, &rect);
 	listofplanets = createPlanetlist();
 	/// initTestPlanetsAndFillplanetlist(); /// endast för testning
@@ -141,6 +140,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 
 	hWnd = windowCreate(hPrevInstance, hInstance, nCmdShow, "Himmel", MainWndProc, COLOR_WINDOW + 1);
 
+	MutexCreate(NULL, FALSE, TEXT("ServerMailslotMutex"), hWnd);
 
 	/* start the timer for the periodic update of the window    */
 	/* (this is a one-shot timer, which means that it has to be */
@@ -184,10 +184,12 @@ DWORD WINAPI mailThread(LPVOID arg) {
 	DWORD		bytesRead = 0;
 	static int	posY = 0;
 	HANDLE		hMailbox;
-	HANDLE		hThreads[THREADCOUNT];
+//	HANDLE		hThreads[THREADCOUNT];
+	HANDLE		hFile;
+	DWORD		waitResult;
 
-
-	hMailbox = mailslotCreate(Slotname);
+	message = (void*)malloc(sizeof(int) * 1024);
+	hMailbox = mailslotCreate(ServerMailslot);
 
 	/* create a mailslot that clients can use to pass requests through   */
 	/* (the clients use the name below to get contact with the mailslot) */
@@ -198,18 +200,33 @@ DWORD WINAPI mailThread(LPVOID arg) {
 
 		//planet = createNewPlanet;
 
-		
-		bytesRead = mailslotRead(hMailbox, message, sizeof(Planet));
-		
-		if (bytesRead == sizeof(Planet)) { // har läst planetdata
-			TextOut(hDC, 20, 500, "Mailslot read success\0", sizeof(strlen("Mailslot read success\0")));
-			threadCreate(planetThread, message);
+		waitResult = WaitForSingleObject(hMutex, 1000);
+
+		switch (waitResult)
+		{
+		case WAIT_OBJECT_0:
+			__try {
+				hFile = mailslotConnect(ServerMailslot);
+				bytesRead = mailslotRead(hMailbox, message, sizeof(Planet));
+				message = (Planet*)realloc(message, sizeof(Planet));
+				if (bytesRead == sizeof(Planet)) { // har läst planetdata
+					TextOut(hDC, 20, 500, "Mailslot read success\0", sizeof(strlen("Mailslot read success\0")));
+					threadCreate(planetThread, (Planet*)message);
+				}
+				else {
+					// om något annat lästs in med annan storlek än planet, kan vi anta att detta är hälsningen från clientala
+					TextOut(hDC, 50, 1000, (char*)message, sizeof(strlen((char*)message)));
+				}
+			}
+			__finally {
+				CloseHandle(hMutex);
+				/// lägga till felhantering 
+			}
 		}
-		else {
-			// om något annat lästs in med annan storlek än planet, kan vi anta att detta är hälsningen från client
-			TextOut(hDC, 50, 1000, message, sizeof(message));
-		}
+
+		Sleep(100); // sov denna en stund sa att en client kan hugga tag i mutex
 	}
+
 
 
 
@@ -256,8 +273,8 @@ DWORD WINAPI mailThread(LPVOID arg) {
 LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
 	PAINTSTRUCT		ps;
-	static int			posX = 10;
-	int					posY;
+	//static int			posX = 10;
+	//int					posY;
 	HANDLE				context;
 	static DWORD		color = 0;
 
@@ -591,6 +608,33 @@ void removePlanet(char* planetname)
 	}
 }
 
+
+/**********************/
+/*		div stöd funktioner    */
+/**********************/
+
+void MutexCreate(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bInitialOwner, LPCTSTR lpName, HWND hWD)
+{
+	DWORD		lastError;
+	char		errMsg[30];
+	char*		errMsg1 = "CreateMutex opened an existing mutex.";
+	char*		errMsg2 = "CreateMutex created a new mutex.";
+
+	hMutex = CreateMutex(
+		lpMutexAttributes,	// default security descriptor
+		bInitialOwner,			// mutex not owned
+		lpName);				// object name, detta krävs för interprocess kommunikation. opernMutex används hos client
+
+	if (hMutex == NULL) {
+		lastError = GetLastError();
+		sprintf(errMsg, "CreateMutex error: %d", lastError);
+		MessageBox(hWD, errMsg, NULL, MB_OK);
+	}
+	else if (GetLastError() == ERROR_ALREADY_EXISTS) {
+		MessageBox(hWD, errMsg1, NULL, MB_OK);
+	}
+	else MessageBox(hWD, errMsg2, NULL, MB_OK);
+}
 
 /************************/
 /* testfunktioner		*/

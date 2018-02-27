@@ -89,7 +89,7 @@ int mailslotWrite(HANDLE mailSlot, void *msg, int msgSize) {
 	}
 }
 
-int	mailslotRead(HANDLE mailbox, void *msg, int msgSize) {
+int	mailslotRead(HANDLE mailbox, void* msg, int msgSize) {
 
 	DWORD bytesread;
 	BOOL result = TRUE;

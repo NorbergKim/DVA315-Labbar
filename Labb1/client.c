@@ -10,7 +10,7 @@
 *********************************************/
 #include <stdio.h>
 #include <windows.h>
-#include <string.h>``
+#include <string.h>
 #include "wrapper.h"
 
 
@@ -29,21 +29,48 @@ void main(void) {
 
 	HANDLE		mailSlot;
 	DWORD		bytesWritten;
-	int			loops = 10;
 	Planet*	planet;
 	char		ch;
 	char*		clientSlotname;
-	int			choice;
+	int			choice = 1;
+	HANDLE		hMutex;
+	char*		greetings = (char*)malloc(sizeof(char) * 50);
+	int			run = 1;
 
-	HANDLE	hMutex;
+	sprintf(greetings, "Greetings from client %d", GetCurrentThreadId());
 
-	hMutex = OpenMutex(
-		MUTEX_ALL_ACCESS,				// request full access
-		FALSE,								// handle not inheritable
-		TEXT("ServerMailslotMutex"));	// object name
+	greetings = (char*)realloc(greetings, sizeof(strlen(greetings)));
+
+	while (run) {
+		hMutex = OpenMutex(
+			MUTEX_ALL_ACCESS,					// request full access
+			FALSE,									// handle not inheritable
+			TEXT("ServerMailslotMutex"));		// object name
+		__try {
+
+			if (hMutex == NULL) {
+				printf("\nwaiting for mutex...");
+				continue;
+			}
+			else {
+				printf("OpenMutex successfully opened the mutex.\n");
+				mailSlot = mailslotConnect(ServerSlotname);
+				if (mailSlot == INVALID_HANDLE_VALUE) {
+					printf("Failed to get a handle to the mailslot!!\nHave you started the server?\n");
+					CloseHandle(hMutex);/// släpp mutex
+				}
+				bytesWritten = mailslotWrite(mailSlot, greetings, sizeof(strlen(greetings)));
+				run = 0;
+			}
+		}
+		__finally {
+			if (!CloseHandle(hMutex)) {
+				printf("Error: %d", GetLastError());
+			}
+		}
+	}
 
 	clientSlotname = clientMailslot();
-
 
 	/// att implementera i loop:
 	/// har maste man reallokera och langre ner free(planet),for att det ska skickas in en nya adress for varje ny planet,
@@ -64,7 +91,24 @@ void main(void) {
 			printf("Hello!\nPress Enter to create a new planet.\n");
 			getchar();
 
-			/// har lagger man att mutex ska huggas. D.v.s. client tar endast mutex om det ska skrivas in data.
+			// har lagger man att mutex ska huggas. D.v.s. client tar endast mutex om det ska skrivas in data.
+			hMutex = OpenMutex(
+				MUTEX_ALL_ACCESS,					// request full access
+				FALSE,									// handle not inheritable
+				TEXT("ServerMailslotMutex"));		// object name
+
+			if (hMutex == NULL)
+				printf("OpenMutex error: %d\n", GetLastError());
+			else printf("OpenMutex successfully opened the mutex.\n");
+
+			mailSlot = mailslotConnect(ServerSlotname);
+
+			if (mailSlot == INVALID_HANDLE_VALUE) {
+				printf("Failed to get a handle to the mailslot!!\nHave you started the server?\n");
+				CloseHandle(hMutex); // släpp mutex
+			}
+
+
 
 			printf("Write the name of the planet:\n");
 			scanf("%s", planet->name);
@@ -85,7 +129,7 @@ void main(void) {
 				" It has a life of %d time units and a mass of size %lf",
 				planet->name, planet->posx, planet->posy, planet->velx, planet->vely, planet->life, planet->mass);
 
-			planet->pid = GetcurrentThreadId();
+			planet->pid = GetCurrentThreadId();
 
 			planet->slotname = (char*)malloc(sizeof(strlen(clientSlotname)));
 			strcpy(planet->slotname, clientSlotname);
@@ -104,7 +148,7 @@ void main(void) {
 				mailSlot = mailslotConnect(ServerSlotname);
 				if (mailSlot == INVALID_HANDLE_VALUE) {
 					printf("Failed to get a handle to the mailslot!!\nHave you started the server?\n");
-					/// släpp mutex
+					CloseHandle(hMutex);/// släpp mutex
 					return;
 				}
 
@@ -118,9 +162,9 @@ void main(void) {
 
 			default: break;
 
-				
 			}
 
+			CloseHandle(hMutex);				
 			/// släpp mutex
 		}
 	}
@@ -191,7 +235,7 @@ char* clientMailslot()
 	printf("\n%s", str);
 
 	strcat(slotname, str);
-	printf("\n%s\t%d", slotname, strlen(slotname));
+	printf("\n%s\t%d", slotname, (int) strlen(slotname));
 
 	hCllientMailslot = mailslotCreate(slotname);
 
