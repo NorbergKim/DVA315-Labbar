@@ -121,7 +121,7 @@ void			removePlanet(char* IDtoRemove);
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLine, int nCmdShow) {
 
 	HWND		hWnd = NULL;		// handle window
-	DWORD		threadID;
+	DWORD		threadID  = 0 ;
 	MSG		msg;
 
 
@@ -146,6 +146,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 	windowRefreshTimer(hWnd, UPDATE_FREQ);
 
 
+
+
 	/* create a thread that can handle incoming client requests */
 	/* (the thread starts executing in the function mailThread) */
 	/* NOTE: See online help for details, you need to know how  */
@@ -154,7 +156,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 
 
 	threadID = threadCreate(mailThread, NULL);
+	if (threadID) {
+		TextOut(hDC, 50, 50, "OK!", sizeof(strlen("OK!")));
+	}
 
+	TextOut(hDC, 50, 500, "skriver nagot skit", sizeof(strlen("skriver nagot skit"))); // detta fungerar
 
 	/* (the message processing loop that all windows applications must have) */
 	/* NOTE: just leave it as it is. */
@@ -190,32 +196,38 @@ DWORD WINAPI mailThread(LPVOID arg) {
 	/* (the clients use the name below to get contact with the mailslot) */
 	/* NOTE: The name of a mailslot must start with "\\\\.\\mailslot\\"  */
 
-
+	TextOut(hDC, 50, 50, "skriver nagot skit", sizeof(strlen("skriver nagot skit")));
 	while (1) {
 
 		//planet = createNewPlanet;
-		waitResult = WaitForSingleObject(hMutex, INFINITE);
+		waitResult = WaitForSingleObject(hMutex, 1000);		// När timmer rinner ut så går exekveringen vidare
 
 		switch (waitResult) {
 		case WAIT_OBJECT_0:
 			__try {
 				hFile = mailslotConnect(ServerMailslot);
 				bytesRead = mailslotRead(hFile, message, sizeof(Planet));
-				message = (Planet*)realloc(message, sizeof(Planet));
-				if (bytesRead == sizeof(Planet)) { // har läst planetdata
-					TextOut(hDC, 20, 500, "Mailslot read success\0", sizeof(strlen("Mailslot read success\0")));
+				if (!bytesRead) {
+					continue;		// om inget läses, fortsätt vidare
+				}
+				else if (bytesRead == sizeof(Planet)) { // har läst planetdata
+					message = (Planet*)realloc(message, sizeof(Planet));
+					TextOut(hDC, 20, 50, "Mailslot read success\0", sizeof(strlen("Mailslot read success\0")));
 					threadCreate(planetThread, (Planet*)message);
 				}
 				else {
-					// om något annat lästs in med annan storlek än planet, kan vi anta att detta är hälsningen från clientala
-					TextOut(hDC, 50, 1000, (char*)message, sizeof(strlen((char*)message)));
+					// om något annat lästs in med annan storlek än planet, kan vi anta att detta är hälsning från client
+					TextOut(hDC, 50, 150, (char*)message, sizeof(strlen((char*)message)));
 				}
 			}
 			__finally {
-				CloseHandle(hMutex);
-				/// lägga till felhantering 
+				if (!ReleaseMutex(hMutex)) {
+					TextOut(hDC, 50, 250, "Someting whent wrong: %d", GetLastError());
+				}				/// lägga till felhantering 
 			}
 		case WAIT_ABANDONED: 
+		case WAIT_TIMEOUT:
+		case WAIT_FAILED:
 			continue;
 		}
 

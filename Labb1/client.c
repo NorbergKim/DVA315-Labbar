@@ -33,7 +33,7 @@ void main(void) {
 	char		ch;
 	char*		clientSlotname;
 	int			choice = 1;
-	HANDLE		hMutex;
+	HANDLE		hMutex = NULL;
 	char*		greetings = (char*)malloc(sizeof(char) * 50);
 	int			run = 1;
 
@@ -50,14 +50,15 @@ void main(void) {
 
 			if (hMutex == NULL) {
 				printf("\nwaiting for mutex...");
+				Sleep(100);			// testar att sova en stund så andra processer och trådar får tag i mutex handle
 				continue;
 			}
 			else {
-				printf("OpenMutex successfully opened the mutex.\n");
+				printf("Successfully opened the mutex.\n");
 				mailSlot = mailslotConnect(ServerSlotname);
-				if (mailSlot == INVALID_HANDLE_VALUE) {
+				if (mailSlot == INVALID_HANDLE_VALUE) {			/// felhantering, släpper mutex om det inte gick att koppla sig mot mailslot
 					printf("Failed to get a handle to the mailslot!!\nHave you started the server?\n");
-					CloseHandle(hMutex);/// släpp mutex
+					CloseHandle(hMutex);
 				}
 				else {
 					bytesWritten = mailslotWrite(mailSlot, greetings, sizeof(strlen(greetings)));
@@ -66,7 +67,7 @@ void main(void) {
 			}
 		}
 		__finally {
-			if (!CloseHandle(hMutex)) {
+			if (!CloseHandle(hMutex)) {			// släpp mutex och felhantera
 				printf("Error i __finally: %d", GetLastError());
 			}
 		}
@@ -88,7 +89,7 @@ void main(void) {
 
 		while (choice == 1) {
 
-			planet->slotname = NULL;
+			planet->slotname = clientMailslot();
 
 			printf("Hello!\nPress Enter to create a new planet.\n");
 			getchar();
@@ -228,16 +229,16 @@ char* clientMailslot()
 
 
 	strcpy(slotname, partslotname);
-	printf("\n%s", slotname);
+	//printf("\n%s", slotname);
 
 	sprintf(str, "%d", processID);  // "gor om" int till string
-	printf("\n%s", str);
+	//printf("\n%s", str);
 
 	str = (char*)realloc(str, sizeof(strlen(str)));
-	printf("\n%s", str);
+	//printf("\n%s", str);
 
 	strcat(slotname, str);
-	printf("\n%s\t%d", slotname, (int) strlen(slotname));
+	//printf("\n%s\t%d", slotname, (int) strlen(slotname));
 
 	hCllientMailslot = mailslotCreate(slotname);
 
