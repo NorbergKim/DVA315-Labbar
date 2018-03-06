@@ -75,7 +75,6 @@ double	p2pyacc(Planet* focus, Planet* target, double r);
 void	newPlanetPos(Planet* planet, double atotx, double atoty);
 void	paintPlanets();
 void	checkIfDeadAndRemove(Planet* planet);
-void	sendDeathMsg(Planet* planet);
 char*	clientMailslot(int pID);
 
 /*******************************************************************************/
@@ -90,7 +89,7 @@ void			planetThread(Planet* planet);
 Planetlist*		createPlanetlist();
 Planet*			createNewPlanet();
 void			addPlanet(Planet* data);	
-void			removePlanet(char* IDtoRemove);
+void			removePlanet(char* planetname);
 
 /***************************************************************************************************/
 
@@ -197,27 +196,6 @@ DWORD WINAPI mailThread(LPVOID arg) {
 	/* NOTE: The name of a mailslot must start with "\\\\.\\mailslot\\"  */
 
 	while (1) {
-
-		//waitResult = WaitForSingleObject(hMutex, 1000);		// När timmer rinner ut så går exekveringen vidare
-
-		//switch (waitResult) {
-		//case WAIT_OBJECT_0:
-		//	__try {
-		//		bytesRead = mailslotRead(hMailslot, readBuffer, sizeof(readBuffer));
-		//		if (bytesRead) {
-		//			planet = (Planet*)malloc(sizeof(Planet));
-		//			memcpy(planet, readBuffer, sizeof(Planet));
-		//			threadCreate(planetThread, planet);
-		//		}
-		//	}
-		//	__finally {
-		//		if (!ReleaseMutex(hMutex)) {
-		//			Beep(600, 100); // beep'ar 600 hz i 100 ms
-		//		}
-		//	}
-		//case WAIT_ABANDONED: continue;
-		//default: continue;
-		//}
 
 		bytesRead = mailslotRead(hMailslot, readBuffer, sizeof(readBuffer));
 		if (bytesRead) {
@@ -360,9 +338,9 @@ void planetThread(Planet* planet)
 	while (1)
 	{
 		planetPosCalc(planet);
-		Sleep(200);
+		Sleep(50);
 		if (!planet->isAlive) {
-			//skicka meddelande till client nar planet dor
+			removePlanet(planet->name);
 			break;
 		}
 	}
@@ -415,27 +393,34 @@ void checkIfDeadAndRemove(Planet* planet)
 	char*	partMsg = "Following planet died: ";
 	char*	message = (char*)malloc(sizeof(char) * 24);
 	char*	clientSlotname = clientMailslot(planet->pid);
+	int		runfun = 1;
+	int		truee;
+	int		msgSize = 0;
 
 	// kontrollera liv 
 	planet->life--;
 	if (planet->life == 0 || planet->posx >= rect.right || planet->posy <= rect.top || planet->posx <= rect.left || planet->posy >= rect.bottom) {
 		planet->isAlive = FALSE;
-		Beep(600, 100);
 
+		// om död skicka hälsning till client
 		strcpy(message, partMsg);
 		strcpy(planetname, planet->name);
 		planetname = (char*)realloc(planetname, sizeof(strlen(planetname)));
 		strcat(message, planetname);
-		while (1) {
+		msgSize = strlen(message);
+		message[msgSize] = '\0';
+		while (runfun) {
 			hSlot = mailslotConnect(clientSlotname);
 			if (hSlot == INVALID_HANDLE_VALUE) {
 				Sleep(100);
 			}
 			else {
-				mailslotWrite(hSlot, message, sizeof(message));
+				truee = mailslotWrite(hSlot, message, msgSize+1);
+				if (truee) {
+					runfun = 0;
+				}
 			}
 		}
-		removePlanet(planet->name);
 	}
 }
 

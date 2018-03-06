@@ -15,22 +15,18 @@
 
 
 LPTSTR	ServerSlotname = TEXT("\\\\.\\mailslot\\superslot");
-HANDLE	hClientMailslot = NULL;
-HANDLE	hClientMutex = NULL;
+HANDLE	hClientslot = NULL;
+
 
 
 Planet*	createNewPlanet();
 char*	clientMailslot();
-void	readIncommingMsg(HANDLE hClientslot);
-void	MutexCreate(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bInitialOwner, LPCTSTR lpName);
-
-
+void	readIncommingMsg();
 
 int main(void) {
 
 	HANDLE		hMailSlot = NULL;
 	HANDLE		hMutex = NULL;
-	HANDLE		hClientslot = NULL;
 
 	DWORD		waitResult;
 	DWORD		bytesWritten = 0;
@@ -44,9 +40,7 @@ int main(void) {
 
 	// skapar client mailslot och andra grejer en gång för varje client
 	clientSlotname = clientMailslot();
-	MutexCreate(NULL, FALSE, TEXT("ClientMailslotMutex"));
-	hClientslot = mailslotCreate(clientSlotname);
-	threadCreate(readIncommingMsg, hClientslot);
+	threadCreate(readIncommingMsg, NULL);
 
 	/*
 		Kvar att implementera: ta emot meddelande om planetdöd. Förslagsvis kan detta ske i början av loopen. 
@@ -211,14 +205,14 @@ char* clientMailslot()
 	strcat(slotname, str);
 	//printf("\n%s\t%d", slotname, (int) strlen(slotname));
 
-	hClientMailslot = mailslotCreate(slotname);
+	hClientslot = mailslotCreate(slotname);
 
 	return slotname;
 }
 
-void readIncommingMsg(HANDLE hClientslot)
+void readIncommingMsg()
 {
-	char	readBuffer[128];
+	char	readBuffer[35];
 	int		bytesRead = 0;
 
 	while (1) {
@@ -226,18 +220,5 @@ void readIncommingMsg(HANDLE hClientslot)
 		if (!bytesRead) {
 			Sleep(300);
 		}
-	}
-}
-
-void MutexCreate(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bInitialOwner, LPCTSTR lpName)
-{
-
-	hClientMutex = CreateMutex(
-		lpMutexAttributes,	// default security descriptor
-		bInitialOwner,			// mutex not owned
-		lpName);				// object name, detta krävs för interprocess kommunikation. opernMutex används hos client
-
-	if (hClientMutex == NULL) {
-		printf("CreateMutex error: %d", GetLastError());
 	}
 }

@@ -91,8 +91,8 @@ int mailslotWrite(HANDLE mailSlot, void *msg, int msgSize) {
 
 int	mailslotRead(HANDLE mailbox, void* msg, int msgSize) {
 
-	DWORD bytesread;
-	BOOL result = TRUE;
+	DWORD	bytesread;
+	BOOL	result = TRUE;
 
 	result = ReadFile(mailbox,
 		msg,					// plats att lagra data
@@ -101,7 +101,7 @@ int	mailslotRead(HANDLE mailbox, void* msg, int msgSize) {
 		NULL);					// skit
 
 	if (result) {
-		printf("Mailslot message: %s", (char*)msg);
+		printf("Mailslot message: %s\n", msg);
 	}
 	return bytesread;
 }
