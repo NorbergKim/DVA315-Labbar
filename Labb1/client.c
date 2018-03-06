@@ -14,70 +14,66 @@
 #include "wrapper.h"
 
 
+LPTSTR	ServerSlotname = TEXT("\\\\.\\mailslot\\superslot");
+HANDLE	hClientMailslot = NULL;
+HANDLE	hClientMutex = NULL;
+
+
 Planet*	createNewPlanet();
-LPTSTR		ServerSlotname = TEXT("\\\\.\\mailslot\\superslot");
-HANDLE		hClientMailslot = NULL;
+char*	clientMailslot();
+void	readIncommingMsg(HANDLE hClientslot);
+void	MutexCreate(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bInitialOwner, LPCTSTR lpName);
 
 
-/// detta ar den tjanst server ger clienten. mata in data och ge tillbaka en unik pekare till skapad planet
-/// returnerade addressen av denna skickas sedan i mailsloten till servern.
-Planet*	createNewPlanet();
-char*		clientMailslot();
 
-typedef struct LivingPlanets {
-	char	listOfPlanets[100][20];		// hårdkodar in att listan hanterar 100 stycken planet(namn)
-}LivingPlanets;
+int main(void) {
 
+	HANDLE		hMailSlot = NULL;
+	HANDLE		hMutex = NULL;
+	HANDLE		hClientslot = NULL;
 
-void main(void) {
-
-	HANDLE		mailSlot;
-	DWORD		bytesWritten;
-	Planet*	planet;
+	DWORD		waitResult;
+	DWORD		bytesWritten = 0;
+	Planet*		planet;
+	int			run = 1;
 	char		ch;
 	char*		clientSlotname;
 	int			choice;
-	HANDLE		hMutex = NULL;
-	int			run = 1;
-	int			index = 0;
-	
+	int			fun = 1;
+
+
+	// skapar client mailslot och andra grejer en gång för varje client
 	clientSlotname = clientMailslot();
-	LivingPlanets planetList;
+	MutexCreate(NULL, FALSE, TEXT("ClientMailslotMutex"));
+	hClientslot = mailslotCreate(clientSlotname);
+	threadCreate(readIncommingMsg, hClientslot);
 
 	/*
 		Kvar att implementera: ta emot meddelande om planetdöd. Förslagsvis kan detta ske i början av loopen. 
 		Denna kanske ska vara i en egen tråd.
 	*/
 
+	// Öppna access till interprocess mutex
+	hMutex = OpenMutex(
+		MUTEX_ALL_ACCESS,					// request full access
+		FALSE,								// handle not inheritable
+		TEXT("ServerMailslotMutex"));		// object name
+
+	if (hMutex == NULL) {
+		printf("OpenMutex error: %d\n", GetLastError());
+	}
+	else
+		printf("Successfully opened the mutex.\n");
+
 	while (run) {
 
-
-		planet = createNewPlanet();
 		choice = 1;
 		while (choice == 1) {
 
-			planet->slotname = clientMailslot();
+			planet = createNewPlanet();	
 
 			printf("\nHello!\nPress Enter to create a new planet.\n");
 			getchar();
-
-			// har lägger man att mutex ska huggas. D.v.s. client tar endast mutex om det ska skrivas in data.
-			hMutex = OpenMutex(
-				MUTEX_ALL_ACCESS,					// request full access
-				FALSE,									// handle not inheritable
-				TEXT("ServerMailslotMutex"));		// object name
-
-			if (hMutex == NULL) {
-				printf("OpenMutex error: %d\n", GetLastError());
-			}
-			else
-				printf("Successfully opened the mutex.\n");
-
-			mailSlot = mailslotConnect(ServerSlotname);
-			if (mailSlot == INVALID_HANDLE_VALUE) {
-				printf("Failed to get a handle to the mailslot!!\nHave you started the server?\n");
-				CloseHandle(hMutex); // släpp mutex
-			}
 
 			printf("\nWrite the name of the planet:\n");
 			scanf("%s", planet->name);
@@ -98,10 +94,8 @@ void main(void) {
 				" It has a life of %d time units and a mass of size %lf",
 				planet->name, planet->posx, planet->posy, planet->velx, planet->vely, planet->life, planet->mass);
 
+			// planetens processID
 			planet->pid = GetCurrentThreadId();
-
-			planet->slotname = (char*)malloc(sizeof(strlen(clientSlotname)));
-			strcpy(planet->slotname, clientSlotname);
 
 			printf("\n\nIf you want to send this information to the server, press 1. If not, press any button. Then press enter.\n\n");
 			scanf_s("%d", &choice);
@@ -109,53 +103,69 @@ void main(void) {
 			//Clean input buffer
 			while ((ch = getchar()) != '\n' && ch != EOF);
 
-			switch (choice)
-			{
-			case 1:
-				planetList.listOfPlanets[index][0] = planet->name;
-				index++;
-				mailSlot = mailslotConnect(ServerSlotname);
-				if (mailSlot == INVALID_HANDLE_VALUE) {
-					printf("Failed to get a handle to the mailslot!!\nHave you started the server?\n");
-					CloseHandle(hMutex);/// släpp mutex
-					return;
-				}
-				else {
-					bytesWritten = mailslotWrite(mailSlot, planet, sizeof(Planet));
-					if (bytesWritten) // non zero, skett skrivning till mailslot
-						printf("data sent to server, %d planet data.)\n", bytesWritten);
-					else
-						printf("failed sending data to server\n");
-				}
-
-				// free(planet); break;
-
-			default: break;
-			}
-
-			CloseHandle(hMutex);
 		
-			for (index; index < 0; index--) {
-				printf("\nPlanets living:\n%s", planetList.listOfPlanets[index][0]);
-			}
+			switch (choice) {
+			case 1:
 
-			printf("\nPress '0' to quit, or enter to continue creating planets.");
-			scanf("%d", run);
-			if (!run) {
-				printf("\nThank you for playing!");
+				// väntar på mutex vi öppnat access till tidigare
+				waitResult = WaitForSingleObject(hMutex, INFINITE);
+
+				switch (waitResult) {
+				case WAIT_OBJECT_0:
+					__try {
+						// connect'a till server mailslot
+						hMailSlot = mailslotConnect(ServerSlotname);
+						if (hMailSlot == INVALID_HANDLE_VALUE) {
+							printf("Failed to get a handle to the mailslot!!\nHave you started the server?\n");
+							return;
+						}
+						else {
+							mailslotWrite(hMailSlot, planet, sizeof(Planet));
+						}
+					}
+					// denna görs alltid
+					__finally {
+						if (!ReleaseMutex(hMutex)) {
+						
+							printf("\nCould not release mutex: %d", GetLastError());
+						}
+					}
+				case WAIT_ABANDONED:
+				case WAIT_TIMEOUT:
+				case WAIT_FAILED:
+					continue;
+				}
+			// inget ska skrivas/skickas till server. Vi lämnar inre loop, frigör planet
+			default:
+				free(planet);
+				break;
+
 			}
+		
+
+			// släpp handtag efter skrivning
+			ReleaseMutex(hMutex);
+		}
+
+		// i yttre loop. Ska vi skriva en ny planet eller inte
+		printf("\nPress 'q' to quit, or anykey to create a new planets.");
+		scanf("%d", run);
+		if (!run) {
+			printf("\nThank you for playing!");
+			break;
 		}
 	}
 
+	// Görs automatiskt när process avslutas. Här görs det explict
+	CloseHandle(hMutex);
+
 	system("pause");
-	mailslotClose(mailSlot);
-	system("pause");
-	return;
+	return 0;
 }
 
-/***********************	*/
-/*		Ett par stödfunktioner    */
-/************************/
+/****************************/
+/*	Ett par stödfunktioner  */
+/****************************/
 Planet* createNewPlanet()
 {
 
@@ -204,4 +214,30 @@ char* clientMailslot()
 	hClientMailslot = mailslotCreate(slotname);
 
 	return slotname;
+}
+
+void readIncommingMsg(HANDLE hClientslot)
+{
+	char	readBuffer[128];
+	int		bytesRead = 0;
+
+	while (1) {
+		bytesRead = mailslotRead(hClientslot, readBuffer, sizeof(readBuffer));
+		if (!bytesRead) {
+			Sleep(300);
+		}
+	}
+}
+
+void MutexCreate(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bInitialOwner, LPCTSTR lpName)
+{
+
+	hClientMutex = CreateMutex(
+		lpMutexAttributes,	// default security descriptor
+		bInitialOwner,			// mutex not owned
+		lpName);				// object name, detta krävs för interprocess kommunikation. opernMutex används hos client
+
+	if (hClientMutex == NULL) {
+		printf("CreateMutex error: %d", GetLastError());
+	}
 }

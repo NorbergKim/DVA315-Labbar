@@ -39,7 +39,7 @@
 /**************************************************************/
 
 LRESULT WINAPI	MainWndProc(HWND, UINT, WPARAM, LPARAM);
-DWORD WINAPI		mailThread(LPVOID);
+DWORD WINAPI	mailThread(LPVOID);
 HDC				hDC;		/* Handle to Device Context, gets set 1st time in MainWndProc	*/
 								/* we need it to access the window for printing and drawing		*/
 
@@ -49,12 +49,12 @@ HDC				hDC;		/* Handle to Device Context, gets set 1st time in MainWndProc	*/
 /*
 	Globala variabler som behövs och div stödfunktioner
 */
-DOUBLE			G = 6.67259e-11;				// graitavionskonstant
+DOUBLE		G = 6.67259e-11;				// graitavionskonstant
 Planetlist*	listofplanets;
-RECT			rect;							// struct som innehåller koordinater till hörn
-//LPTSTR		Slotname = TEXT("\\\\.\\mailslot\\superslot");
-char*			ServerMailslot = "\\\\.\\mailslot\\superslot";
-HANDLE			hMutex;
+RECT		rect;							// struct som innehåller koordinater till hörn
+char*		ServerMailslot = "\\\\.\\mailslot\\superslot";
+HANDLE		hMutex;
+HWND		hWD0;
 
 void			MutexCreate(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bInitialOwner, LPCTSTR lpName, HWND hWD);
 /************************************/
@@ -75,6 +75,9 @@ double	p2pyacc(Planet* focus, Planet* target, double r);
 void	newPlanetPos(Planet* planet, double atotx, double atoty);
 void	paintPlanets();
 void	checkIfDeadAndRemove(Planet* planet);
+void	sendDeathMsg(Planet* planet);
+char*	clientMailslot(int pID);
+
 /*******************************************************************************/
 
 
@@ -83,10 +86,9 @@ void	checkIfDeadAndRemove(Planet* planet);
 	Har under ligger definitioner for funktioner
 	som hanterar den lankade listan av planeter.
 */
-
 void			planetThread(Planet* planet);
-Planetlist*	createPlanetlist();
-Planet*		createNewPlanet();
+Planetlist*		createPlanetlist();
+Planet*			createNewPlanet();
 void			addPlanet(Planet* data);	
 void			removePlanet(char* IDtoRemove);
 
@@ -120,12 +122,11 @@ void			removePlanet(char* IDtoRemove);
 				/* NOTE: In windows WinMain is the start function, not main */
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLine, int nCmdShow) {
 
-	HWND		hWnd = NULL;		// handle window
-	DWORD		threadID  = 0 ;
+	HWND	hWnd = NULL;		// handle window
+	DWORD	threadID  = 0 ;
 	MSG		msg;
 
 
-	GetWindowRect(hWnd, &rect);
 	listofplanets = createPlanetlist();
 	/// initTestPlanetsAndFillplanetlist(); /// endast för testning
 
@@ -134,7 +135,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 	/* and the backgrond color */
 
 	hWnd = windowCreate(hPrevInstance, hInstance, nCmdShow, "Himmel", MainWndProc, COLOR_WINDOW + 1);
-
+	hWD0 = hWnd;
 	MutexCreate(NULL, FALSE, TEXT("ServerMailslotMutex"), hWnd);
 
 	/* start the timer for the periodic update of the window    */
@@ -156,11 +157,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 
 
 	threadID = threadCreate(mailThread, NULL);
-	if (threadID) {
-		TextOut(hDC, 50, 80, "tradskapad", sizeof(strlen("tradskapad")));
-	}
 
-	TextOut(hDC, 50, 500, "winmain", sizeof(strlen("winmain"))); // detta fungerar
 
 	/* (the message processing loop that all windows applications must have) */
 	/* NOTE: just leave it as it is. */
@@ -186,13 +183,14 @@ DWORD WINAPI mailThread(LPVOID arg) {
 	*/
 
 
-	Planet*	planet = NULL;
+	Planet*		planet = NULL;
 	DWORD		bytesRead = 0;
-	HANDLE		hMailbox;
-	HANDLE		hFile;
+	HANDLE		hMailslot;
 	DWORD		waitResult;
+	int			readBuffer[1024];
 
-	hMailbox = mailslotCreate(ServerMailslot);
+	hMailslot= mailslotCreate(ServerMailslot);
+
 
 	/* create a mailslot that clients can use to pass requests through   */
 	/* (the clients use the name below to get contact with the mailslot) */
@@ -200,34 +198,33 @@ DWORD WINAPI mailThread(LPVOID arg) {
 
 	while (1) {
 
-		//planet = createNewPlanet;
+		//waitResult = WaitForSingleObject(hMutex, 1000);		// När timmer rinner ut så går exekveringen vidare
 
-		waitResult = WaitForSingleObject(hMutex, 1000);		// När timmer rinner ut så går exekveringen vidare
+		//switch (waitResult) {
+		//case WAIT_OBJECT_0:
+		//	__try {
+		//		bytesRead = mailslotRead(hMailslot, readBuffer, sizeof(readBuffer));
+		//		if (bytesRead) {
+		//			planet = (Planet*)malloc(sizeof(Planet));
+		//			memcpy(planet, readBuffer, sizeof(Planet));
+		//			threadCreate(planetThread, planet);
+		//		}
+		//	}
+		//	__finally {
+		//		if (!ReleaseMutex(hMutex)) {
+		//			Beep(600, 100); // beep'ar 600 hz i 100 ms
+		//		}
+		//	}
+		//case WAIT_ABANDONED: continue;
+		//default: continue;
+		//}
 
-		switch (waitResult) {
-		case WAIT_OBJECT_0:
-			__try {
-				hFile = mailslotConnect(ServerMailslot);
-				bytesRead = mailslotRead(hFile, planet, sizeof(Planet));
-				if (!bytesRead) {
-					continue;		// om inget läses, fortsätt vidare
-				}
-				else {
-					threadCreate(planetThread, planet);
-				}
-			}
-			__finally {
-				if (!ReleaseMutex(hMutex)) {
-					Beep(600, 100); // beep'ar 600 hz i 100 ms
-				}
-			}
-		case WAIT_ABANDONED: 
-		case WAIT_TIMEOUT:
-		case WAIT_FAILED:
-			continue;
+		bytesRead = mailslotRead(hMailslot, readBuffer, sizeof(readBuffer));
+		if (bytesRead) {
+			planet = (Planet*)malloc(sizeof(Planet));
+			memcpy(planet, readBuffer, sizeof(Planet));
+			threadCreate(planetThread, planet);
 		}
-
-		Sleep(100); // sov denna en stund sa att en client kan hugga tag i mutex
 	}
 
 
@@ -270,10 +267,9 @@ DWORD WINAPI mailThread(LPVOID arg) {
 LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
 	PAINTSTRUCT		ps;
-	//static int			posX = 10;
-	//int					posY;
-	HANDLE				context;
-	static DWORD		color = 0;
+	HANDLE			context;
+	static DWORD	color = 0;
+
 
 
 
@@ -300,7 +296,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) 
 
 			/* here we draw a simple sinus curve in the window    */
 			/* just to show how pixels are drawn                  */
-
+			GetWindowRect(hWnd, &rect);
 
 			paintPlanets();
 
@@ -352,6 +348,187 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) 
 	}
 	return 0;
 }
+
+
+/***************************/
+/* planet och listfunktion */
+/***************************/
+void planetThread(Planet* planet)
+{
+	addPlanet(planet);
+
+	while (1)
+	{
+		planetPosCalc(planet);
+		Sleep(200);
+		if (!planet->isAlive) {
+			//skicka meddelande till client nar planet dor
+			break;
+		}
+	}
+}
+
+Planet* createNewPlanet()
+{
+
+	Planet* newPlanet = NULL;
+	newPlanet = (Planet*)malloc(sizeof(Planet));
+	if (newPlanet) {
+		newPlanet->life = 5000;
+		newPlanet->mass = 0.0;
+		newPlanet->posx = 0.0;
+		newPlanet->posy = 0.0;
+		newPlanet->velx = 0.0;
+		newPlanet->vely = 0.0;
+		newPlanet->prev = NULL;
+		newPlanet->next = NULL;
+	}
+
+	else {
+		printf("ERROR:COULD NOT ALLOCATE MEM."); /// denna kommer inte synas i fönstret. Se labbsepc för workaround.
+												 /// om denna sedan lägges i client.c kommer det att synas.
+		return newPlanet;
+	}
+
+	return newPlanet;
+}
+
+void paintPlanets()
+{
+	static DWORD color = 0;
+	Planet* planetToPaint = NULL;
+
+	planetToPaint = listofplanets->head;
+
+	while (planetToPaint != NULL) {
+		SetPixel(hDC, planetToPaint->posx, planetToPaint->posy, (COLORREF)color);
+		planetToPaint = planetToPaint->next;
+	}
+
+	free(planetToPaint);
+}
+
+void checkIfDeadAndRemove(Planet* planet)
+{
+	HANDLE	hSlot = NULL;
+	char*	planetname = (char*)malloc(sizeof(char) * 50);
+	char*	partMsg = "Following planet died: ";
+	char*	message = (char*)malloc(sizeof(char) * 24);
+	char*	clientSlotname = clientMailslot(planet->pid);
+
+	// kontrollera liv 
+	planet->life--;
+	if (planet->life == 0 || planet->posx >= rect.right || planet->posy <= rect.top || planet->posx <= rect.left || planet->posy >= rect.bottom) {
+		planet->isAlive = FALSE;
+		Beep(600, 100);
+
+		strcpy(message, partMsg);
+		strcpy(planetname, planet->name);
+		planetname = (char*)realloc(planetname, sizeof(strlen(planetname)));
+		strcat(message, planetname);
+		while (1) {
+			hSlot = mailslotConnect(clientSlotname);
+			if (hSlot == INVALID_HANDLE_VALUE) {
+				Sleep(100);
+			}
+			else {
+				mailslotWrite(hSlot, message, sizeof(message));
+			}
+		}
+		removePlanet(planet->name);
+	}
+}
+
+Planetlist* createPlanetlist(void)
+{
+	Planetlist* listofplanets = NULL;
+	listofplanets = (Planetlist*)malloc(sizeof(Planetlist));
+	if (listofplanets) {
+		listofplanets->head = NULL;
+		listofplanets->planetcount = 0;
+		printf("\nNew list created.\n");
+	}
+	else {
+		printf("ERROR: COULD NOT ALLOCATE MEM.");
+		return NULL;
+	}
+
+	return listofplanets;
+}
+void addPlanet(Planet * planet)
+{
+	if (listofplanets->planetcount == 0) // om tom planetlista lägg till först
+		listofplanets->head = planet;
+
+	else {
+		listofplanets->head->prev = planet; // om fler planeter lägg till på följande sätt (läggs alltid till först)
+		planet->next = listofplanets->head;
+		listofplanets->head = planet;
+	}
+
+	listofplanets->planetcount++;
+}
+
+void removePlanet(char* planetname)
+{
+	Planet* planetToRemove = NULL;
+
+	planetToRemove = listofplanets->head;
+
+	// traversa lista och finn planet
+	while (planetToRemove != NULL && strcmp(planetname, planetToRemove->name)) {
+		planetToRemove = planetToRemove->next;
+		if (planetToRemove == NULL) {
+			printf("\nThere is no such planet.");
+			return;
+		}
+	}
+
+	// när funnen ta bort
+	if (planetToRemove->prev == NULL) {	/// om första planeten
+		if (listofplanets->planetcount == 1) { // om enda planet
+			free(planetToRemove);
+			listofplanets->head = NULL;
+			listofplanets->planetcount--;
+			return;
+		}
+
+		else {	// om flera planeter
+			planetToRemove->next->prev = NULL;
+			listofplanets->head = planetToRemove->next;
+			free(planetToRemove);
+			planetToRemove = NULL;
+			listofplanets->planetcount--;
+			return;
+		}
+	}
+
+	else if (planetToRemove->next == NULL) { /// om sista planeten
+		if (listofplanets->planetcount == 1) {	// om enda planet
+			free(planetToRemove);
+			listofplanets->head = NULL;
+			listofplanets->planetcount--;
+			return;
+		}
+		else {	// om flera planeter
+			planetToRemove->prev->next = NULL;
+			free(planetToRemove);
+			planetToRemove = NULL;
+			listofplanets->planetcount--;
+			return;
+		}
+	}
+
+	else {
+		/// alla andra fall
+		planetToRemove->prev->next = planetToRemove->next;
+		planetToRemove->next->prev = planetToRemove->prev;
+		free(planetToRemove);
+		planetToRemove = NULL;
+		listofplanets->planetcount--;
+	}
+}
+
 
 /****************************/
 /* Beräknar alla planeters  */
@@ -430,189 +607,14 @@ void newPlanetPos(Planet* planet, double atotx, double atoty)
 	planet->posy = planet->posy + planet->vely * dt;
 }
 
-/***************************/
-/* planet och listfunktion */
-/***************************/
 
 
-void planetThread(Planet* planet)
-{
-	addPlanet(planet);
-
-	while (1)
-	{
-		planetPosCalc(planet);
-		Sleep(200);
-		if (!planet->isAlive) {
-			//skicka meddelande till client nar planet dor
-			free(planet);
-			return;
-		}
-	}
-}
-
-Planet* createNewPlanet()
-{
-
-	Planet* newPlanet = NULL;
-	newPlanet = (Planet*)malloc(sizeof(Planet));
-	if (newPlanet) {
-		newPlanet->life = 5000;
-		newPlanet->mass = 0.0;
-		newPlanet->posx = 0.0;
-		newPlanet->posy = 0.0;
-		newPlanet->velx = 0.0;
-		newPlanet->vely = 0.0;
-		newPlanet->prev = NULL;
-		newPlanet->next = NULL;
-	}
-
-	else {
-		printf("ERROR:COULD NOT ALLOCATE MEM."); /// denna kommer inte synas i fönstret. Se labbsepc för workaround.
-												 /// om denna sedan lägges i client.c kommer det att synas.
-		return newPlanet;
-	}
-
-	return newPlanet;
-}
-
-void checkIfDeadAndRemove(Planet* planet)
-{
-	// kontrollera liv 
-	planet->life--;
-	if (planet->life == 0) {
-		removePlanet(planet->name);
-		planet->isAlive = FALSE;
-		Beep(440, 100);
-	}
-
-	// kontrollera om utanför fönster
-	else if
-		(planet->posx >= rect.right || planet->posy <= rect.top || planet->posx <= rect.left || planet->posy >= rect.bottom) {
-		removePlanet(planet->name);
-		planet->isAlive = FALSE;
-		Beep(880, 100);
-
-	}
-
-	/// antingen sköter removePlanet() meddelandet till client eller 
-	/// så görs det här i en egen funkiton med pID som argument
-}
-
-void paintPlanets()
-{
-	static DWORD color = 0;
-	Planet* planetToPaint = NULL;
-
-	planetToPaint = listofplanets->head;
-
-	while (planetToPaint != NULL) {
-		SetPixel(hDC, planetToPaint->posx, planetToPaint->posy, (COLORREF)color);
-		planetToPaint = planetToPaint->next;
-	}
-
-	free(planetToPaint);
-}
-
-Planetlist* createPlanetlist(void)
-{
-	Planetlist* listofplanets = NULL;
-	listofplanets = (Planetlist*)malloc(sizeof(Planetlist));
-	if (listofplanets) {
-		listofplanets->head = NULL;
-		listofplanets->planetcount = 0;
-		printf("\nNew list created.\n");
-	}
-	else {
-		printf("ERROR: COULD NOT ALLOCATE MEM.");
-		return NULL;
-	}
-
-	return listofplanets;
-}
-
-void addPlanet(Planet * planet)
-{
-	if (listofplanets->planetcount == 0) // om tom planetlista lägg till först
-		listofplanets->head = planet;
-
-	else {
-		listofplanets->head->prev = planet; // om fler planeter lägg till på följande sätt (läggs alltid till först)
-		planet->next = listofplanets->head;
-		listofplanets->head = planet;
-	}
-
-	listofplanets->planetcount++;
-}
-
-void removePlanet(char* planetname)
-{
-	Planet* planetToRemove = NULL;
-
-	planetToRemove = listofplanets->head;
-
-	// traversa lista och finn planet
-	while (planetToRemove != NULL && strcmp(planetname, planetToRemove->name)) {
-		planetToRemove = planetToRemove->next;
-		if (planetToRemove == NULL) {
-			printf("\nThere is no such planet.");
-			return;
-		}
-	}
-
-	// när funnen ta bort
-	if (planetToRemove->prev == NULL) {	/// om första planeten
-		if (listofplanets->planetcount == 1) { // om enda planet
-			free(planetToRemove);
-			listofplanets->head = NULL;
-			listofplanets->planetcount--;
-			return;
-		}
-
-		else {	// om flera planeter
-			planetToRemove->next->prev = NULL;
-			listofplanets->head = planetToRemove->next;
-			free(planetToRemove);
-			planetToRemove = NULL;
-			listofplanets->planetcount--;
-			return;
-		}
-	}
-
-	else if (planetToRemove->next == NULL) { /// om sista planeten
-		if (listofplanets->planetcount == 1) {	// om enda planet
-			free(planetToRemove);
-			listofplanets->head = NULL;
-			listofplanets->planetcount--;
-			return;
-		}
-		else {	// om flera planeter
-			planetToRemove->prev->next = NULL;
-			free(planetToRemove);
-			planetToRemove = NULL;
-			listofplanets->planetcount--;
-			return;
-		}
-	}
-
-	else {
-		/// alla andra fall
-		planetToRemove->prev->next = planetToRemove->next;
-		planetToRemove->next->prev = planetToRemove->prev;
-		free(planetToRemove);
-		planetToRemove = NULL;
-		listofplanets->planetcount--;
-	}
-}
-
-
-/**********************/
-/*		div stöd funktioner    */
-/**********************/
+/***********************/
+/* div stöd funktioner */
+/***********************/
 
 void MutexCreate(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bInitialOwner, LPCTSTR lpName, HWND hWD)
 {
-	DWORD		lastError;
 	char		errMsg[30];
 	char*		errMsg1 = "CreateMutex opened an existing mutex.";
 	char*		errMsg2 = "CreateMutex created a new mutex.";
@@ -623,14 +625,28 @@ void MutexCreate(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bInitialOwner, LP
 		lpName);				// object name, detta krävs för interprocess kommunikation. opernMutex används hos client
 
 	if (hMutex == NULL) {
-		lastError = GetLastError();
-		sprintf(errMsg, "CreateMutex error: %d", lastError);
+		sprintf(errMsg, "CreateMutex error: %d", GetLastError());
 		MessageBox(hWD, errMsg, NULL, MB_OK);
 	}
 	else if (GetLastError() == ERROR_ALREADY_EXISTS) {
 		MessageBox(hWD, errMsg1, NULL, MB_OK);
 	}
 	else MessageBox(hWD, errMsg2, NULL, MB_OK);
+}
+
+char* clientMailslot(int pID)
+{
+	char*		str = (char*)malloc(sizeof(char) * 10);
+	char*		partslotname = "\\\\.\\mailslot\\";
+	char*		slotname = (char*)malloc(sizeof(char) * 13);
+
+	strcpy(slotname, partslotname);
+	sprintf(str, "%d", pID);	// "gor om" int till string
+	str = (char*)realloc(str, sizeof(strlen(str)));
+	strcat(slotname, str);
+
+
+	return slotname;
 }
 
 /************************/

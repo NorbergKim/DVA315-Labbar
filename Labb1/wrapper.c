@@ -101,13 +101,8 @@ int	mailslotRead(HANDLE mailbox, void* msg, int msgSize) {
 		NULL);					// skit
 
 	if (result) {
-		printf("Read Success: %s", (char*)msg);
+		printf("Mailslot message: %s", (char*)msg);
 	}
-	else {
-		printf("Read failed with %d.", GetLastError());
-	}
-
-
 	return bytesread;
 }
 
