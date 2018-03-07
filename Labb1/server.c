@@ -274,6 +274,8 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) 
 
 			/* here we draw a simple sinus curve in the window    */
 			/* just to show how pixels are drawn                  */
+
+
 			GetWindowRect(hWnd, &rect);
 
 			paintPlanets();
@@ -540,14 +542,14 @@ void planetPosCalc(Planet* planet)
 	}
 
 	// när den samlade accelerationspåverkan mellan focus och resten (targets)
-	// är uträknad så beräknas ny hastighet och position ut (i x- och y-led).
+	// är uträknad så beräknas ny hastighet och position ut (för både x- och y-led)
 	newPlanetPos(planet, atotx, atoty);
 
 
 	// kontrollera om livet kommer ner till noll eller om utanför fönster
 	checkIfDeadAndRemove(planet);
 
-	// reseta denna
+	// reseta denna för att för nästa planet som ska beräknas
 	targets = listofplanets->head;
 	
 }
@@ -595,9 +597,8 @@ void newPlanetPos(Planet* planet, double atotx, double atoty)
 
 
 /***********************/
-/* div stöd funktioner */
+/* div stödfunktioner  */
 /***********************/
-
 void MutexCreate(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bInitialOwner, LPCTSTR lpName, HWND hWD)
 {
 	char		errMsg[30];

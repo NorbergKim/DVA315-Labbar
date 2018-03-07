@@ -17,8 +17,6 @@
 LPTSTR	ServerSlotname = TEXT("\\\\.\\mailslot\\superslot");
 HANDLE	hClientslot = NULL;
 
-
-
 Planet*	createNewPlanet();
 char*	clientMailslot();
 void	readIncommingMsg();
@@ -38,14 +36,14 @@ int main(void) {
 	int			fun = 1;
 
 
-	// skapar client mailslot och andra grejer en gång för varje client
+	// skapar client mailslot 
 	clientSlotname = clientMailslot();
+
+
+	// tråd för inkommande meddelanden
 	threadCreate(readIncommingMsg, NULL);
 
-	/*
-		Kvar att implementera: ta emot meddelande om planetdöd. Förslagsvis kan detta ske i början av loopen. 
-		Denna kanske ska vara i en egen tråd.
-	*/
+
 
 	// Öppna access till interprocess mutex
 	hMutex = OpenMutex(
@@ -61,7 +59,6 @@ int main(void) {
 
 	while (run) {
 
-		choice = 1;
 		while (choice == 1) {
 
 			planet = createNewPlanet();	
@@ -97,7 +94,6 @@ int main(void) {
 			//Clean input buffer
 			while ((ch = getchar()) != '\n' && ch != EOF);
 
-		
 			switch (choice) {
 			case 1:
 
@@ -120,7 +116,7 @@ int main(void) {
 					// denna görs alltid
 					__finally {
 						if (!ReleaseMutex(hMutex)) {
-						
+
 							printf("\nCould not release mutex: %d", GetLastError());
 						}
 					}
@@ -129,12 +125,13 @@ int main(void) {
 				case WAIT_FAILED:
 					continue;
 				}
-			// inget ska skrivas/skickas till server. Vi lämnar inre loop, frigör planet
+				// inget ska skrivas/skickas till server. Vi lämnar inre loop, frigör planet
 			default:
 				free(planet);
 				break;
 
 			}
+		
 		
 
 			// släpp handtag efter skrivning
@@ -142,15 +139,18 @@ int main(void) {
 		}
 
 		// i yttre loop. Ska vi skriva en ny planet eller inte
-		printf("\nPress 'q' to quit, or anykey to create a new planets.");
+		printf("\nPress '0' to quit, or anykey to create a new planets.");
 		scanf("%d", run);
 		if (!run) {
 			printf("\nThank you for playing!");
 			break;
 		}
+		else
+			choice = 1;
+
 	}
 
-	// Görs automatiskt när process avslutas. Här görs det explict
+	// Görs automatiskt när process avslutas. Här görs det explicit
 	CloseHandle(hMutex);
 
 	system("pause");
