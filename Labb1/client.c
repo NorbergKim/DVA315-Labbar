@@ -32,7 +32,7 @@ int main(void) {
 	int			run = 1;
 	char		ch;
 	char*		clientSlotname;
-	int			choice;
+	int			choice = 1;
 	int			fun = 1;
 
 
@@ -88,8 +88,9 @@ int main(void) {
 			// planetens processID
 			planet->pid = GetCurrentThreadId();
 
-			printf("\n\nIf you want to send this information to the server, press 1. If not, press any button. Then press enter.\n\n");
-			scanf_s("%d", &choice);
+			printf("\n\nIf you want to send this information to the server, press 1. If not, press any other number. Then press enter.\n");
+			scanf("%d", &choice);
+	
 
 			//Clean input buffer
 			while ((ch = getchar()) != '\n' && ch != EOF);
@@ -140,7 +141,7 @@ int main(void) {
 
 		// i yttre loop. Ska vi skriva en ny planet eller inte
 		printf("\nPress '0' to quit, or anykey to create a new planets.");
-		scanf("%d", run);
+		scanf("%d", &run);
 		if (!run) {
 			printf("\nThank you for playing!");
 			break;
