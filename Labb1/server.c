@@ -13,7 +13,7 @@
 * NOTE: this program uses some graphic primitives provided by Win32, *
 * therefore there are probably a lot of things that are unfamiliar   *
 * to you. There are comments in this file that indicates where it is *
-* appropriate to place your code.                                    *
+* appropriate to place your code.									    *
 * *******************************************************************/
 
 #include <windows.h>
@@ -38,13 +38,73 @@
 /*       to indicate that. (Ignore them for now.)             */
 /**************************************************************/
 
-LRESULT WINAPI MainWndProc(HWND, UINT, WPARAM, LPARAM);
-DWORD WINAPI mailThread(LPVOID);
+LRESULT WINAPI	MainWndProc(HWND, UINT, WPARAM, LPARAM);
+DWORD WINAPI	mailThread(LPVOID);
+HDC				hDC;		/* Handle to Device Context, gets set 1st time in MainWndProc	*/
+								/* we need it to access the window for printing and drawing		*/
 
 
 
-HDC hDC;		/* Handle to Device Context, gets set 1st time in MainWndProc	*/
-				/* we need it to access the window for printing and drawing		*/
+/*************************************/
+/*
+	Globala variabler som behövs och div stödfunktioner
+*/
+DOUBLE		G = 6.67259e-11;				// graitavionskonstant
+Planetlist*	listofplanets;
+RECT		rect;							// struct som innehåller koordinater till hörn
+char*		ServerMailslot = "\\\\.\\mailslot\\superslot";
+HANDLE		hMutex;
+HWND		hWD0;
+HANDLE		hSMutex;
+
+void			MutexCreate(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bInitialOwner, LPCTSTR lpName, HWND hWD);
+/************************************/
+
+
+/********************************************************************************/
+/*
+	Funktioner som:
+	- beräknar nya positioner och hastigheter,
+	- om en planet är vid liv
+	- för att måla planeterna i fönstret
+	- div. stödfunktioner till ovan.
+*/
+void	planetPosCalc(Planet* planet);
+double	p2pRadius(Planet* focus, Planet* target);
+double	p2pxacc(Planet* focus, Planet* target, double r);
+double	p2pyacc(Planet* focus, Planet* target, double r);
+void	newPlanetPos(Planet* planet, double atotx, double atoty);
+void	paintPlanets();
+void	checkIfDeadAndRemove(Planet* planet);
+char*	clientMailslot(int pID);
+
+/*******************************************************************************/
+
+
+/***************************************************************************************************/
+/*
+	Har under ligger definitioner for funktioner
+	som hanterar den lankade listan av planeter.
+*/
+void			planetThread(Planet* planet);
+Planetlist*		createPlanetlist();
+Planet*			createNewPlanet();
+void			addPlanet(Planet* data);	
+void			removePlanet(char* planetname);
+
+/***************************************************************************************************/
+
+
+/**********************************************/
+/*
+	Några testfunkioner. Hårdkodade datatyper för testning.
+	Dessa ryker sedan i live implementeringen.
+*/
+
+//void	calcAllPlanetPos();	/// denna måste göras om då varje planet tråd räknar endast ut ny pos/vel för sin egen planet
+//void	initTestPlanetsAndFillplanetlist();
+/*********************************************/
+				
 
 				/********************************************************************\
 				*  Function: int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)    *
@@ -60,81 +120,35 @@ HDC hDC;		/* Handle to Device Context, gets set 1st time in MainWndProc	*/
 				/* NOTE: This function is not too important to you, it only */
 				/*       initializes a bunch of things.                     */
 				/* NOTE: In windows WinMain is the start function, not main */
-
-
-/*************************************/
-/*
-	Globala variabler som behövs
-*/
-DOUBLE		G = 6.67259e-11;				// graitavionskonstant
-Planetlist* listofplanets;
-RECT		rect;							// struct som innehåller koordinater till hörn
-LPTSTR		Slotname = TEXT("\\\\.\\mailslot\\superslot");
-
-/************************************/
-
-
-/********************************************************************************/
-/*
-	Funktioner som:
-	- beräknar nya positioner och hastigheter,
-	- om en planet är vid liv
-	- för att måla planeterna i fönstret
-	- div. stödfunktioner till ovan.
-*/
-
-
-void	planetPosCalc();
-double	p2pRadius(Planet* focus, Planet* target);
-double	p2pxacc(Planet* focus, Planet* target, double r);
-double	p2pyacc(Planet* focus, Planet* target, double r);
-void	newPlanetPos(Planet* planet, double atotx, double atoty);
-void	paintPlanets();
-void	checkIfDeadAndRemove(Planet* planet);
-
-/*******************************************************************************/
-
-
-/***************************************************************************************************/
-/*
-	Har under ligger definitioner for funktioner
-	som hanterar den lankade listan av planeter.
-*/
-
-Planetlist*	createPlanetlist();
-Planet*		createNewPlanet();
-void		addPlanet(Planet* data);
-void		removePlanet(char* IDtoRemove);
-
-/***************************************************************************************************/
-
-
-/**********************************************/
-/*
-Några testfunkioner. Hårdkodade datatyper för testning.
-Dessa ryker sedan i live implementeringen.
-*/
-
-void planetposcalc(Planet* planet1, Planet* planet2); /// denna delas upp till tva? Se kommentar i funktionskroppen.
-void initTestPlanetsAndFillplanetlist();
-/*********************************************/
-
-
-
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLine, int nCmdShow) {
 
-	HWND	hWnd;		// handle window
-	DWORD	threadID;
+	HWND	hWnd = NULL;		// handle window
+	DWORD	threadID  = 0 ;
 	MSG		msg;
 
+
+	listofplanets = createPlanetlist();
+	/// initTestPlanetsAndFillplanetlist(); /// endast för testning
 
 	/* Create the window, 3 last parameters important */
 	/* The tile of the window, the callback function */
 	/* and the backgrond color */
 
 	hWnd = windowCreate(hPrevInstance, hInstance, nCmdShow, "Himmel", MainWndProc, COLOR_WINDOW + 1);
+	hWD0 = hWnd;
+	MutexCreate(NULL, FALSE, TEXT("ServerMailslotMutex"), hWnd);
 
+	// Create a mutex with no initial owner
+	hSMutex = CreateMutex(
+		NULL,              // default security attributes
+		FALSE,             // initially not owned
+		NULL);             // unnamed mutex (om man ska göra kommunikation mellan processer, olika program, så behöver man namnge här)
 
+	if (hMutex == NULL) {
+		printf("CreateMutex error: %d\n", GetLastError());
+		return 1;
+	}
+	
 
 	/* start the timer for the periodic update of the window    */
 	/* (this is a one-shot timer, which means that it has to be */
@@ -145,9 +159,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 	windowRefreshTimer(hWnd, UPDATE_FREQ);
 
 
-	GetWindowRect(hWnd, &rect);
-	listofplanets = createPlanetlist();
-	/// initTestPlanetsAndFillplanetlist(); /// endast för testning
 
 
 	/* create a thread that can handle incoming client requests */
@@ -167,9 +178,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 		DispatchMessage(&msg);
 	}
 
-
-
-
 	return msg.wParam;
 }
 
@@ -181,27 +189,34 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 /********************************************************************/
 DWORD WINAPI mailThread(LPVOID arg) {
 
-	Planet* planet;
-	DWORD bytesRead = 0;
-	static int posY = 0;
-	HANDLE hMailbox;
+	/*
+		OBS! TextOut fungerar inte i denna context. Det är endast den tråd som skapar grafikfönstrer som har
+		tillgång till rit och skivfunktioner till server programfönstret.
+	*/
 
-	planet = createNewPlanet();
+
+	Planet*		planet = NULL;
+	DWORD		bytesRead = 0;
+	HANDLE		hMailslot;
+	DWORD		waitResult;
+	int			readBuffer[1024];
+
+	hMailslot= mailslotCreate(ServerMailslot);
 
 
 	/* create a mailslot that clients can use to pass requests through   */
 	/* (the clients use the name below to get contact with the mailslot) */
 	/* NOTE: The name of a mailslot must start with "\\\\.\\mailslot\\"  */
 
+	while (1) {
 
-	hMailbox = mailslotCreate(Slotname);
-
-	bytesRead = mailslotRead(hMailbox, planet, sizeof(Planet));
-	if (bytesRead) {
-		TextOut(hDC, 20, 60, "Read success\0", sizeof(strlen("Read success\0")));
+		bytesRead = mailslotRead(hMailslot, readBuffer, sizeof(readBuffer));
+		if (bytesRead) {
+			planet = (Planet*)malloc(sizeof(Planet));
+			memcpy(planet, readBuffer, sizeof(Planet));
+			threadCreate(planetThread, planet);
+		}
 	}
-
-	addPlanet(planet);
 
 
 	//for (;;) {
@@ -209,14 +224,9 @@ DWORD WINAPI mailThread(LPVOID arg) {
 	//	/* in this example the server receives strings from the client side and   */
 	//	/* displays them in the presentation window                               */
 	//	/* NOTE: binary data can also be sent and received, e.g. planet structures*/
-
-
-	//
-
 	//	if (bytesRead != 0) {
 	//		/* NOTE: It is appropriate to replace this code with something */
 	//		/*       that match your needs here.                           */
-	//		addPlanet(planet->name);
 	//		/* (hDC is used reference the previously created window) */
 
 	//		//			TextOut(hDC, 10, 50+posY%200, planet->name, bytesRead);
@@ -247,11 +257,10 @@ DWORD WINAPI mailThread(LPVOID arg) {
 
 LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
-	PAINTSTRUCT ps;
-	static int posX = 10;
-	int posY;
-	HANDLE context;
-	static DWORD color = 0;
+	PAINTSTRUCT		ps;
+	HANDLE			context;
+	static DWORD	color = 0;
+
 
 
 
@@ -280,14 +289,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) 
 			/* just to show how pixels are drawn                  */
 
 
-			//posX += 4;
-			//posY = (int) (10 * sin(posX / (double) 30) + 20);
-			//SetPixel(hDC, posX % 700, posY, (COLORREF) color);
-			//color += 12;
-			//windowRefreshTimer (hWnd, UPDATE_FREQ);
-			//break; 
 
-			planetPosCalc();
 			paintPlanets();
 
 			windowRefreshTimer(hWnd, UPDATE_FREQ);
@@ -306,6 +308,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) 
 			/*       for showing something in the window.                */
 			context = BeginPaint(hWnd, &ps); /* (you can safely remove the following line of code) */
 			//TextOut(context, 10, 10, "Hello, World!", 13); /* 13 is the string length */
+			GetWindowRect(hWnd, &rect);
 
 			EndPaint(hWnd, &ps);
 			break;
@@ -339,152 +342,25 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) 
 	return 0;
 }
 
-/****************************/
-/* Beräknar alla planeters  */
-/* nya positioner och       */
-/* hastigheter			    */
-/****************************/
-void planetPosCalc()
-{
-	Planet* focus;
-	Planet* targets;
-	Planet* shadow;
-	double atotx = 0.0;
-	double atoty = 0.0;
-	double radius = 0.0;
-
-	focus = listofplanets->head;
-	shadow = listofplanets->head; // skuggar pekare som i sin tur sätter en planet i focus för beräkningarna
-	targets = listofplanets->head;
-
-	while (focus != NULL) {
-		while (targets != NULL) {
-			if (strcmp(focus->name, targets->name)) {  // om ej samma exekvera if sats
-				radius = p2pRadius(focus, targets);
-				atotx += p2pxacc(focus, targets, radius);
-				atoty += p2pyacc(focus, targets, radius);
-			}
-
-			targets = targets->next;
-		}
-
-		// när den samlade accelerationspåverkan mellan focus och resten (targets)
-		// är uträknad så beräknas ny hastighet och position ut (i x- och y-led).
-		newPlanetPos(focus, atotx, atoty);
-
-		// reseta dessa innan varje iteration för nya hastigheter ska beräknas
-		atotx = 0.0;
-		atoty = 0.0;
-
-		// next planet to calc
-		focus = focus->next;
-
-		// kolla av om livet kommer ner till noll eller om utanför fönster
-		checkIfDeadAndRemove(shadow);
-
-
-		shadow = focus;
-
-		//reseta denna
-		targets = listofplanets->head;
-	}
-
-}
-
-double p2pRadius(Planet* focus, Planet* target)
-{
-	return sqrt(pow((target->posx - focus->posx), 2) + pow((target->posy - focus->posy), 2));
-}
-
-double p2pxacc(Planet* focus, Planet* target, double r)
-{
-	static double dt = 10;
-	double a = 0.0;
-	double accx = 0.0;
-
-	a = G * target->mass / pow(r, 2);				// acceleration mellan planeterna
-	accx = a * (target->posx - focus->posx) / r;	// acceleration i x-led
-
-	return accx;
-}
-
-double p2pyacc(Planet* focus, Planet* target, double r)
-{
-	static double dt = 10;
-	double a = 0.0;
-	double accy = 0.0;
-
-	a = G * target->mass / pow(r, 2);				// acceleration mellan planeterna
-	accy = a * (target->posy - focus->posy) / r;	// acceleration i y-led
-
-	return accy;
-}
-
-void newPlanetPos(Planet* planet, double atotx, double atoty)
-{
-	static double dt = 10;
-
-	planet->velx = planet->velx + atotx * dt;
-	planet->vely = planet->vely + atoty * dt;
-
-	planet->posx = planet->posx + planet->velx * dt;
-	planet->posy = planet->posy + planet->vely * dt;
-}
 
 /***************************/
 /* planet och listfunktion */
 /***************************/
-void checkIfDeadAndRemove(Planet* planet)
+void planetThread(Planet* planet)
 {
-	// kontrollera liv 
-	planet->life--;
-	if (planet->life == 0) {
-		removePlanet(planet->name);
-		Beep(440, 100);
+	WaitForSingleObject(hSMutex, INFINITE);
+	addPlanet(planet);
+	ReleaseMutex(hSMutex);
+	while (1)
+	{
+		
+		planetPosCalc(planet);
+		Sleep(50);
+		if (!planet->isAlive) {
+			removePlanet(planet->name);
+			break;
+		}
 	}
-
-	// kontrollera om utanför fönster
-	else if
-		(planet->posx >= rect.right || planet->posy <= rect.top || planet->posx <= rect.left || planet->posy >= rect.bottom) {
-		removePlanet(planet->name);
-		Beep(880, 100);
-
-	}
-
-	/// antingen sköter removePlanet() meddelandet till client eller 
-	/// så görs det här i en egen funkiton med pID som argument
-}
-
-void paintPlanets()
-{
-	static DWORD color = 0;
-	Planet* planetToPaint = NULL;
-
-	planetToPaint = listofplanets->head;
-
-	while (planetToPaint != NULL) {
-		SetPixel(hDC, planetToPaint->posx, planetToPaint->posy, (COLORREF)color);
-		planetToPaint = planetToPaint->next;
-	}
-
-	free(planetToPaint);
-}
-
-Planetlist* createPlanetlist(void)
-{
-	Planetlist* listofplanets = NULL;
-	listofplanets = (Planetlist*)malloc(sizeof(Planetlist));
-	if (listofplanets) {
-		listofplanets->head = NULL;
-		listofplanets->planetcount = 0;
-		printf("\nNew list created.\n");
-	}
-	else {
-		printf("ERROR: COULD NOT ALLOCATE MEM.");
-		return NULL;
-	}
-
-	return listofplanets;
 }
 
 Planet* createNewPlanet()
@@ -512,6 +388,75 @@ Planet* createNewPlanet()
 	return newPlanet;
 }
 
+void paintPlanets()
+{
+	static DWORD color = 0;
+	Planet* planetToPaint = NULL;
+
+	planetToPaint = listofplanets->head;
+
+	while (planetToPaint != NULL) {
+		SetPixel(hDC, planetToPaint->posx, planetToPaint->posy, (COLORREF)color);
+		planetToPaint = planetToPaint->next;
+	}
+
+	free(planetToPaint);
+}
+
+void checkIfDeadAndRemove(Planet* planet)
+{
+	HANDLE	hSlot = NULL;
+	char*	planetname = (char*)malloc(sizeof(char) * 50);
+	char*	partMsg = "Following planet died: ";
+	char*	message = (char*)malloc(sizeof(char) * 24);
+	char*	clientSlotname = clientMailslot(planet->pid);
+	int		runfun = 1;
+	int		truee;
+	int		msgSize = 0;
+
+	// kontrollera liv 
+	planet->life--;
+	if (planet->life == 0 || planet->posx >= rect.right || planet->posy <= rect.top || planet->posx <= rect.left || planet->posy >= rect.bottom) {
+		planet->isAlive = FALSE;
+
+		// om död skicka hälsning till client
+		strcpy(message, partMsg);
+		strcpy(planetname, planet->name);
+		planetname = (char*)realloc(planetname, sizeof(strlen(planetname)));
+		strcat(message, planetname);
+		msgSize = strlen(message);
+		message[msgSize] = '\0';
+		while (runfun) {
+			hSlot = mailslotConnect(clientSlotname);
+			if (hSlot == INVALID_HANDLE_VALUE) {
+				Sleep(100);
+			}
+			else {
+				truee = mailslotWrite(hSlot, message, msgSize+1);
+				if (truee) {
+					runfun = 0;
+				}
+			}
+		}
+	}
+}
+
+Planetlist* createPlanetlist(void)
+{
+	Planetlist* listofplanets = NULL;
+	listofplanets = (Planetlist*)malloc(sizeof(Planetlist));
+	if (listofplanets) {
+		listofplanets->head = NULL;
+		listofplanets->planetcount = 0;
+		printf("\nNew list created.\n");
+	}
+	else {
+		printf("ERROR: COULD NOT ALLOCATE MEM.");
+		return NULL;
+	}
+
+	return listofplanets;
+}
 void addPlanet(Planet * planet)
 {
 	if (listofplanets->planetcount == 0) // om tom planetlista lägg till först
@@ -587,45 +532,211 @@ void removePlanet(char* planetname)
 }
 
 
+/****************************/
+/* Beräknar alla planeters  */
+/* nya positioner och       */
+/* hastigheter			    */
+/****************************/
+void planetPosCalc(Planet* planet)
+{
+	Planet* targets;
+	double	atotx = 0.0;
+	double	atoty = 0.0;
+	double	radius = 0.0;
+
+	targets = listofplanets->head;
+
+	WaitForSingleObject(hSMutex);
+	while (targets != NULL) {
+		if (strcmp(planet->name, targets->name)) {  // om ej samma berakna acceleration
+			radius = p2pRadius(planet, targets);
+			atotx += p2pxacc(planet, targets, radius);
+			atoty += p2pyacc(planet, targets, radius);
+		}
+		
+		targets = targets->next;
+	}
+	ReleaseMutex(hSMutex);
+
+	// när den samlade accelerationspåverkan mellan focus och resten (targets)
+	// är uträknad så beräknas ny hastighet och position ut (för både x- och y-led)
+	newPlanetPos(planet, atotx, atoty);
+
+
+	// kontrollera om livet kommer ner till noll eller om utanför fönster
+	checkIfDeadAndRemove(planet);
+
+	// reseta denna för att för nästa planet som ska beräknas
+	targets = listofplanets->head;
+	
+}
+
+double p2pRadius(Planet* focus, Planet* target)
+{
+	return sqrt(pow((target->posx - focus->posx), 2) + pow((target->posy - focus->posy), 2));
+}
+
+double p2pxacc(Planet* focus, Planet* target, double r)
+{
+	static double dt = 10;
+	double a = 0.0;
+	double accx = 0.0;
+
+	a = G * target->mass / pow(r, 2);				// acceleration mellan planeterna
+	accx = a * (target->posx - focus->posx) / r;	// acceleration i x-led
+
+	return accx;
+}
+
+double p2pyacc(Planet* focus, Planet* target, double r)
+{
+	static double dt = 10;
+	double a = 0.0;
+	double accy = 0.0;
+
+	a = G * target->mass / pow(r, 2);				// acceleration mellan planeterna
+	accy = a * (target->posy - focus->posy) / r;	// acceleration i y-led
+
+	return accy;
+}
+
+void newPlanetPos(Planet* planet, double atotx, double atoty)
+{
+	static double dt = 10;
+
+	planet->velx = planet->velx + atotx * dt;
+	planet->vely = planet->vely + atoty * dt;
+
+	planet->posx = planet->posx + planet->velx * dt;
+	planet->posy = planet->posy + planet->vely * dt;
+}
+
+
+
+/***********************/
+/* div stödfunktioner  */
+/***********************/
+void MutexCreate(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bInitialOwner, LPCTSTR lpName, HWND hWD)
+{
+	char		errMsg[30];
+	char*		errMsg1 = "CreateMutex opened an existing mutex.";
+	char*		errMsg2 = "CreateMutex created a new mutex.";
+
+	hMutex = CreateMutex(
+		lpMutexAttributes,	// default security descriptor
+		bInitialOwner,			// mutex not owned
+		lpName);				// object name, detta krävs för interprocess kommunikation. opernMutex används hos client
+
+	if (hMutex == NULL) {
+		sprintf(errMsg, "CreateMutex error: %d", GetLastError());
+		MessageBox(hWD, errMsg, NULL, MB_OK);
+	}
+	else if (GetLastError() == ERROR_ALREADY_EXISTS) {
+		MessageBox(hWD, errMsg1, NULL, MB_OK);
+	}
+	else MessageBox(hWD, errMsg2, NULL, MB_OK);
+}
+
+char* clientMailslot(int pID)
+{
+	char*		str = (char*)malloc(sizeof(char) * 10);
+	char*		partslotname = "\\\\.\\mailslot\\";
+	char*		slotname = (char*)malloc(sizeof(char) * 13);
+
+	strcpy(slotname, partslotname);
+	sprintf(str, "%d", pID);	// "gor om" int till string
+	str = (char*)realloc(str, sizeof(strlen(str)));
+	strcat(slotname, str);
+
+
+	return slotname;
+}
+
 /************************/
 /* testfunktioner		*/
 /************************/
-void initTestPlanetsAndFillplanetlist()
-{
+//void initTestPlanetsAndFillplanetlist()
+//{
+//
+//	// sätter alla pid till samma för att simulera att de kommer från sammam client.
+//
+//	Planet* p0 = createNewPlanet();
+//	p0->life = 20000;
+//	p0->mass = pow(10, 8);
+//	p0->posx = 600;
+//	p0->posy = 300;
+//	p0->velx = 0.0;
+//	p0->vely = 0.0;
+//	strcpy(p0->name, "planet0");
+//	strcpy(p0->pid, "p0");
+//
+//	Planet* p1 = createNewPlanet();
+//	p1->life = 20000;
+//	p1->mass = 1000;
+//	p1->posx = 500;
+//	p1->posy = 300;
+//	p1->velx = 0.0;
+//	p1->vely = 0.008;
+//	strcpy(p1->name, "planet1");
+//	strcpy(p1->pid, "p0");
+//
+//	Planet* p2 = createNewPlanet();
+//	p2->life = 20000;
+//	p2->mass = 10000;
+//	p2->posx = 800;
+//	p2->posy = 300;
+//	p2->velx = -0.001;
+//	p2->vely = -0.01;
+//	strcpy(p2->name, "planet2");
+//	strcpy(p2->pid, "p0");
+//
+//	addPlanet(p0);
+//	addPlanet(p1);
+//	addPlanet(p2);
+//}
 
-	// sätter alla pid till samma för att simulera att de kommer från sammam client.
-
-	Planet* p0 = createNewPlanet();
-	p0->life = 20000;
-	p0->mass = pow(10, 8);
-	p0->posx = 600;
-	p0->posy = 300;
-	p0->velx = 0.0;
-	p0->vely = 0.0;
-	strcpy(p0->name, "planet0");
-	strcpy(p0->pid, "p0");
-
-	Planet* p1 = createNewPlanet();
-	p1->life = 20000;
-	p1->mass = 1000;
-	p1->posx = 500;
-	p1->posy = 300;
-	p1->velx = 0.0;
-	p1->vely = 0.008;
-	strcpy(p1->name, "planet1");
-	strcpy(p1->pid, "p0");
-
-	Planet* p2 = createNewPlanet();
-	p2->life = 20000;
-	p2->mass = 10000;
-	p2->posx = 800;
-	p2->posy = 300;
-	p2->velx = -0.001;
-	p2->vely = -0.01;
-	strcpy(p2->name, "planet2");
-	strcpy(p2->pid, "p0");
-
-	addPlanet(p0);
-	addPlanet(p1);
-	addPlanet(p2);
-}
+//void calcAllPlanetPos()
+//{
+//	Planet* focus;
+//	Planet* targets;
+//	Planet* shadow;
+//	double atotx = 0.0;
+//	double atoty = 0.0;
+//	double radius = 0.0;
+//
+//	focus = listofplanets->head;
+//	shadow = listofplanets->head; // skuggar pekare som i sin tur sätter en planet i focus för beräkningarna
+//	targets = listofplanets->head;
+//
+//	while (focus != NULL) {
+//		while (targets != NULL) {
+//			if (strcmp(focus->name, targets->name)) {  // om ej samma exekvera if sats
+//				radius = p2pRadius(focus, targets);
+//				atotx += p2pxacc(focus, targets, radius);
+//				atoty += p2pyacc(focus, targets, radius);
+//			}
+//
+//			targets = targets->next;
+//		}
+//
+//		// när den samlade accelerationspåverkan mellan focus och resten (targets)
+//		// är uträknad så beräknas ny hastighet och position ut (i x- och y-led).
+//		newPlanetPos(focus, atotx, atoty);
+//
+//		// reseta dessa innan varje iteration för nya hastigheter ska beräknas
+//		atotx = 0.0;
+//		atoty = 0.0;
+//
+//		// next planet to calc
+//		focus = focus->next;
+//
+//		// kolla av om livet kommer ner till noll eller om utanför fönster
+//		checkIfDeadAndRemove(shadow);
+//
+//
+//		shadow = focus;
+//
+//		//reseta denna
+//		targets = listofplanets->head;
+//	}
+//}

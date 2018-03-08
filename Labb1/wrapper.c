@@ -28,9 +28,9 @@ HANDLE mailslotCreate(char *name) {
 	HANDLE hSlot;
 
 	hSlot = CreateMailslot(name,
-		0,                             // no maximum message size 
-		MAILSLOT_WAIT_FOREVER,         // no time-out for operations 
-		(LPSECURITY_ATTRIBUTES)NULL); // default security
+		0,								// no maximum message size 
+		MAILSLOT_WAIT_FOREVER,			// no time-out for operations 
+		(LPSECURITY_ATTRIBUTES)NULL);	// default security
 
 	if (hSlot == INVALID_HANDLE_VALUE)
 	{
@@ -89,20 +89,20 @@ int mailslotWrite(HANDLE mailSlot, void *msg, int msgSize) {
 	}
 }
 
-int	mailslotRead(HANDLE mailbox, void *msg, int msgSize) {
+int	mailslotRead(HANDLE mailbox, void* msg, int msgSize) {
 
-	DWORD bytesread;
-	BOOL success = TRUE;
+	DWORD	bytesread;
+	BOOL	result = TRUE;
 
-	success = ReadFile(mailbox,
+	result = ReadFile(mailbox,
 		msg,					// plats att lagra data
 		msgSize,				// storlek på data
 		&bytesread,				// antal bytes lasta
 		NULL);					// skit
 
-	printf("Read Success: %s", (char*)msg);
-
-
+	if (result) {
+		printf("Mailslot message: %s\n", msg);
+	}
 	return bytesread;
 }
 
