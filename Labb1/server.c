@@ -55,6 +55,7 @@ RECT		rect;							// struct som innehåller koordinater till hörn
 char*		ServerMailslot = "\\\\.\\mailslot\\superslot";
 HANDLE		hMutex;
 HWND		hWD0;
+HANDLE		hSMutex;
 
 void			MutexCreate(LPSECURITY_ATTRIBUTES lpMutexAttributes, BOOL bInitialOwner, LPCTSTR lpName, HWND hWD);
 /************************************/
@@ -136,6 +137,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 	hWnd = windowCreate(hPrevInstance, hInstance, nCmdShow, "Himmel", MainWndProc, COLOR_WINDOW + 1);
 	hWD0 = hWnd;
 	MutexCreate(NULL, FALSE, TEXT("ServerMailslotMutex"), hWnd);
+
+	// Create a mutex with no initial owner
+	hSMutex = CreateMutex(
+		NULL,              // default security attributes
+		FALSE,             // initially not owned
+		NULL);             // unnamed mutex (om man ska göra kommunikation mellan processer, olika program, så behöver man namnge här)
+
+	if (hMutex == NULL) {
+		printf("CreateMutex error: %d\n", GetLastError());
+		return 1;
+	}
+	
 
 	/* start the timer for the periodic update of the window    */
 	/* (this is a one-shot timer, which means that it has to be */
@@ -276,7 +289,6 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) 
 			/* just to show how pixels are drawn                  */
 
 
-			GetWindowRect(hWnd, &rect);
 
 			paintPlanets();
 
@@ -296,6 +308,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) 
 			/*       for showing something in the window.                */
 			context = BeginPaint(hWnd, &ps); /* (you can safely remove the following line of code) */
 			//TextOut(context, 10, 10, "Hello, World!", 13); /* 13 is the string length */
+			GetWindowRect(hWnd, &rect);
 
 			EndPaint(hWnd, &ps);
 			break;
@@ -335,10 +348,12 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) 
 /***************************/
 void planetThread(Planet* planet)
 {
+	WaitForSingleObject(hSMutex, INFINITE);
 	addPlanet(planet);
-
+	ReleaseMutex(hSMutex);
 	while (1)
 	{
+		
 		planetPosCalc(planet);
 		Sleep(50);
 		if (!planet->isAlive) {
@@ -531,15 +546,17 @@ void planetPosCalc(Planet* planet)
 
 	targets = listofplanets->head;
 
+	WaitForSingleObject(hSMutex);
 	while (targets != NULL) {
 		if (strcmp(planet->name, targets->name)) {  // om ej samma berakna acceleration
 			radius = p2pRadius(planet, targets);
 			atotx += p2pxacc(planet, targets, radius);
 			atoty += p2pyacc(planet, targets, radius);
 		}
-
+		
 		targets = targets->next;
 	}
+	ReleaseMutex(hSMutex);
 
 	// när den samlade accelerationspåverkan mellan focus och resten (targets)
 	// är uträknad så beräknas ny hastighet och position ut (för både x- och y-led)

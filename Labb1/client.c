@@ -218,8 +218,8 @@ void readIncommingMsg()
 
 	while (1) {
 		bytesRead = mailslotRead(hClientslot, readBuffer, sizeof(readBuffer));
-		if (!bytesRead) {
+		/*if (!bytesRead) {
 			Sleep(300);
-		}
+		}*/
 	}
 }
